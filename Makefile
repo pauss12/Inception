@@ -26,8 +26,8 @@ create_dirs:
 	@echo $(GREEN)"Creating volumes... 🗃️"$(NC)
 # 	@mkdir -p /home/$(USER)/data/wordpress
 # 	@mkdir -p /home/$(USER)/data/mariadb
-	@mkdir -p /Users/pmendez/42/Inception/data/wordpress
 	@mkdir -p /Users/pmendez/42/Inception/data/mariadb
+	@mkdir -p /Users/pmendez/42/Inception/data/wordpress
 
 # restart:
 # 	docker compose -f srcs/docker-compose.yml restart
@@ -43,6 +43,7 @@ clean: down
 	@echo $(RED)"Cleaning up Docker resources... 🧹"$(NC)
 	@docker system prune -a --volumes -f
 	@rm -rf /Users/pmendez/42/Inception/data
+	# @rm -rf /home/$(USER)/data
 
 re: clean all
 

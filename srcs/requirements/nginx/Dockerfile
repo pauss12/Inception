@@ -1,11 +1,10 @@
-FROM alpine:3.22.4
+FROM nginx:stable-alpine
 
-RUN apk update && apk upgrade && \
-    apk add --no-cache mariadb mariadb-client bash
+RUN apk update && apk upgrade || true
 
-COPY ./conf/mariadb-conf.cnf /etc/my.cnf.d/mariadb-server.cnf
+# Copy nginx configuration files (expects conf/ to contain site configs)
+COPY ./conf/ /etc/nginx/conf.d/
 
-COPY ./tools/initialize.sh ./
-RUN chmod +x initialize.sh
+EXPOSE 80 443
 
-ENTRYPOINT ["./initialize.sh"]
+CMD ["nginx", "-g", "daemon off;"]
