@@ -19,9 +19,14 @@ This document explains how to set up the development environment from scratch, b
 
 ### 2.1 Create the VM
 
-1. Create a new VirtualBox VM (Linux, other 64-bit) with at least 2 CPUs, 4 GB RAM and 20 GB disk.
-2. Install Alpine Linux from the official ISO using `setup-alpine`.
-3. Install a desktop environment:
+1. Download the latest Alpine Linux ISO from [https://alpinelinux.org/downloads/](https://alpinelinux.org/downloads/). 
+
+2. Create a new VirtualBox VM (Linux, other 64-bit) with at least 2 CPUs, 4 GB RAM and 20 GB disk.
+
+![alt text](.img/image.png)
+
+3. Install Alpine Linux from the official ISO using `setup-alpine`.
+4. Install a desktop environment:
 
 ```sh
 setup-desktop xfce
