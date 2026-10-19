@@ -1,20 +1,16 @@
-version: '3.8'
-
 services:
-  mariadb:
-    image: mariadb:latest # Or your custom build context if you are building from a Dockerfile
-    container_name: mariadb
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: root_password_here
-      MYSQL_DATABASE: inception_db
-    volumes:
-      - mariadb_data:/var/lib/mysql
 
-volumes:
-  mariadb_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /Users/pmendez/42/Inception/data/mariadb
+  nginx:
+    build:
+      context: ./nginx
+      Dockerfile: Dockerfile
+
+  mariadb:
+    build:
+      context: ./mariadb
+      Dockerfile: Dockerfile
+
+  wordpress:
+    build:
+      context: ./wordpress
+      Dockerfile: Dockerfile
