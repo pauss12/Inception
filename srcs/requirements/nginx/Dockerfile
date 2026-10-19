@@ -1,4 +1,4 @@
-FROM nginx:stable-alpine
+FROM alpine:3.23
 
 RUN apk update && apk upgrade || true
 
