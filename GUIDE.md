@@ -61,6 +61,8 @@ That command does not delete the data folder. Delete it too, so the site is inst
 sudo rm -rf /home/pmendez/data
 ```
 
+![Data Folder Removal](.img/guideDoc/data_folder_removal.png)
+
 > If the old data is kept and the new secrets are different, WordPress cannot connect to the old database.
 
 ## Step 3. Create `.env` and the secrets
@@ -94,6 +96,8 @@ Check that everything was created:
 cat srcs/.env      # the variables above
 ls secrets/        # 4 .txt files
 ```
+
+![Secrets Created](.img/guideDoc/env_created_check.png)
 
 > ⚠️ Do not skip this step: without these files, `make` fails with `env file .../srcs/.env not found`.
 
