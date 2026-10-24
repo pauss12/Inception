@@ -41,21 +41,29 @@ This document explains, step by step, how to set up the environment from scratch
 
 2. Create a new VirtualBox VM (Linux, other 64-bit) with at least 2 CPUs, 4 GB RAM and 20 GB disk.
 
-![VirtualBox VM settings](.img/setup_1.png)
+![VirtualBox VM settings](.img/devDoc/setup_1.png)
 
-![Ram and CPU](.img/ram_needed.png)
+![Ram and CPU](.img/devDoc/ram_needed.png)
 
 3. Boot the VM.
 
-![VM running](.img/virtualbox.png)
+![VM running](.img/devDoc/virtualbox.png)
 
-![Once booted](.img/once_booted.png)
+![Once booted](.img/devDoc/once_booted.png)
 
 4. Install Alpine Linux from the official ISO using `setup-alpine`.
 
-![alt text](.img/repositories.png)
+![alt text](.img/devDoc/repositories.png)
 
 5. Install a desktop environment:
+
+To make it possible to use graphical applications, you need to change this on VM settings: *Settings → Screen → Graphics Controller → VBoxVGA*.
+
+Change it from `VBoxVGA` to `VMSVGA` and also, you need to increase the video memory up to 128, for example.
+
+![alt text](.img/devDoc/controlador_grafico.png)
+
+To install XFCE, run:
 
 ```sh
 setup-desktop xfce
@@ -90,7 +98,7 @@ sudo apk update
 
 1. In VirtualBox: *Settings → Shared Folders →* add the project folder, name it `Inception`, check *Auto-mount*.
 
-![alt text](.img/shared_folder.png)
+![alt text](.img/devDoc/shared_folder.png)
 
 2. In the VM, install the guest additions and add the user to the `vboxsf` group:
 
@@ -105,11 +113,11 @@ sudo reboot
 
 The project is then available at `/media/sf_Inception`.
 
-![alt text](.img/sf_Inception.png)
+![alt text](.img/devDoc/sf_Inception.png)
 
 > Group changes only apply after logging out and back in. Check with `id`.
 
-![alt text](.img/show_groups_user.png)
+![alt text](.img/devDoc/show_groups_user.png)
 
 ---
 
@@ -129,7 +137,7 @@ docker --version
 docker compose version
 ```
 
-![alt text](.img/check_versions.png)
+![alt text](.img/devDoc/check_versions.png)
 
 ```sh
 docker run --rm hello-world
@@ -237,20 +245,108 @@ Each service has two moments, and confusing them is the most common source of er
 
 This is why WordPress cannot be fully installed in the Dockerfile: at build time the database is not running and the passwords are not available.
 
-### 6.5 PID 1: why each script ends with `exec`
+### 6.5 PID 1: the main process of a container
 
-A container lives as long as its main process (PID 1) lives. Each start script:
+#### What PID 1 is
 
-1. Does its one-time setup.
-2. Ends with `exec <server>`, which **replaces** the script with the real server. The server becomes PID 1, receives Docker's stop signals directly, and the container stops cleanly.
+Every running program is a **process**, and every process has a number: its **PID** (*Process ID*). The first process started inside a container gets the number **1**. It is the container's **main process**.
 
-Every server runs in the **foreground** (`daemon off;`, `-F`, `mariadbd`). If it went to the background, PID 1 would end and the container would stop. No infinite loops (`tail -f`, `sleep infinity`, `while true`) are used.
+Docker follows one simple rule:
 
-| Container | PID 1 |
-|---|---|
-| nginx | `nginx -g "daemon off;"` |
-| wordpress | `php-fpm83 -F` |
-| mariadb | `mariadbd --user=mysql` |
+> **A container lives exactly as long as its PID 1 lives.** When PID 1 ends, the container stops.
+
+So PID 1 must be the server itself (nginx, PHP-FPM, MariaDB), and it must keep running.
+
+#### Rule 1: the server must run in the foreground
+
+Many servers, when started, go to the **background** (they become a *daemon*): they create a copy of themselves that keeps working, and the original process ends. On a normal computer this is fine. In a container it is not:
+
+```
+Server in the background:
+  PID 1 = nginx  →  creates a copy in the background  →  PID 1 ends
+  Docker: "PID 1 has ended"  →  stops the container ❌
+
+Server in the foreground:
+  PID 1 = nginx  →  keeps working itself
+  Docker: "PID 1 is alive"   →  the container keeps running ✅
+```
+
+That is why every server is started in the **foreground**:
+
+| Container | PID 1 | How it stays in the foreground |
+|---|---|---|
+| nginx | `nginx -g "daemon off;"` | `daemon off;` = "do not go to the background" |
+| wordpress | `php-fpm83 -F` | `-F` = *foreground* |
+| mariadb | `mariadbd --user=mysql` | `mariadbd` stays in the foreground by default |
+
+#### Rule 2: PID 1 receives the stop signals
+
+A **signal** is a message sent to a process. Two matter here:
+
+| Signal | Meaning | What the process can do |
+|---|---|---|
+| `SIGTERM` | "Please stop" | Finish its current work, save, close its files, then exit |
+| `SIGKILL` | "Stop now" | Nothing: it is killed instantly |
+
+When a container is stopped (`make down`, `docker stop`), Docker:
+
+1. Sends `SIGTERM` **only to PID 1**.
+2. Waits up to **10 seconds**.
+3. If the container is still running, sends `SIGKILL`.
+
+So PID 1 must be the server, because it is the only process that gets the "please stop" message:
+
+```
+✅ The server is PID 1:
+Docker ──SIGTERM──▶ PID 1 = mariadbd
+                    finishes writing, closes the database, exits
+                    → clean stop in 1-2 seconds
+
+❌ A script is PID 1 and the server is its child:
+Docker ──SIGTERM──▶ PID 1 = sh initialize.sh   (the shell ignores it)
+                         └── mariadbd           (never receives it)
+        ...10 seconds...
+Docker ──SIGKILL──▶ everything is killed instantly
+                    → MariaDB may be stopped in the middle of a write
+```
+
+#### How this project does it: `exec`
+
+The WordPress and MariaDB containers start with a script (`tools/*.sh`), so at first **the script** is PID 1. The script:
+
+1. Does its one-time setup (install WordPress, create the database).
+2. Ends with `exec <server>`:
+
+```sh
+exec mariadbd --user=mysql     # mariadb/tools/initialize.sh
+exec php-fpm83 -F              # wordpress/tools/wp-installer.sh
+```
+
+`exec` **replaces** the script with the server. It does not start a new process: the same process, with the same PID 1, now runs the server. Without `exec`, the server would be a child of the script, and the script would stay as PID 1 (the bad case above).
+
+nginx does not need a script: the Dockerfile's `CMD` starts nginx directly, so it is PID 1 from the beginning.
+
+#### Why infinite loops are forbidden
+
+A common shortcut is to start the server in the background and keep the container alive with a command that never ends: `tail -f`, `sleep infinity`, `while true`. The subject forbids it, and for good reasons:
+
+- PID 1 is `tail`, not the server, so **the server never receives `SIGTERM`** and is killed after 10 seconds.
+- **If the server crashes, the container keeps "running"** (the loop is still alive). Docker does not notice anything, and `restart: unless-stopped` never restarts it.
+
+With the server as PID 1, the container's state is the server's state: if the server crashes, the container stops and Docker restarts it.
+
+#### Check it
+
+```sh
+# Who is PID 1 in each container
+for c in nginx wordpress mariadb; do
+  printf '%s: ' $c; docker exec $c cat /proc/1/cmdline | tr '\0' ' '; echo
+done
+
+# A clean stop takes 1-2 seconds; ~10 seconds would mean PID 1 ignored SIGTERM
+time docker stop mariadb
+docker start mariadb
+```
 
 ---
 
