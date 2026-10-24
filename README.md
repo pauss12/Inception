@@ -131,7 +131,7 @@ This project uses a bridge network called `inception`, so only port 443 is expos
 | Declared once and shared by name between services | Path written in each service |
 | Independent from the host's folder layout | Depends on the host's folders and permissions |
 
-The subject requires **named volumes** stored in `/home/pmendez-/data`. The two volumes (`wordpress` and `mariadb`) are named volumes declared in `docker-compose.yml`; the `local` driver option `device:` only tells Docker in which host folder to keep their data.
+The subject requires **named volumes** stored in `/home/pmendez/data`. The two volumes (`wordpress` and `mariadb`) are named volumes declared in `docker-compose.yml`; the `local` driver option `device:` only tells Docker in which host folder to keep their data.
 
 ## Resources
 

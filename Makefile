@@ -1,4 +1,5 @@
 NAME = inception
+DATA_DIR = /home/pmendez/data
 COMPOSE_FILE = srcs/docker-compose.yml
 
 RED="\033[0;31m"
@@ -10,37 +11,37 @@ YELLOW="\033[0;33m"
 NC="\033[0m"
 
 all: build
-	@echo $(GREEN)"Starting containers... 🚀"$(NC)
+	@echo -e $(GREEN)"Starting containers... "$(NC)
 	@docker compose -f $(COMPOSE_FILE) up -d
 	@docker compose -f $(COMPOSE_FILE) start
 
 build: create_dirs
-	@echo $(CYAN)"Building Docker images... 🏗️"$(NC)
+	@echo -e $(CYAN)"Building Docker images... "$(NC)
 	@docker compose -f $(COMPOSE_FILE) build
 
 up-%:
-	@echo $(CYAN)"Starting $* container... 🚀"$(NC)
+	@echo -e $(CYAN)"Starting $* container..."$(NC)
 	@docker compose -f $(COMPOSE_FILE) up $* -d
 
 create_dirs:
-	@echo $(GREEN)"Creating volumes... 🗃️"$(NC)
-	@mkdir -p /home/$(USER)/data/wordpress
-	@mkdir -p /home/$(USER)/data/mariadb
+	@echo -e $(GREEN)"Creating volumes..."$(NC)
+	@mkdir -p $(DATA_DIR)/wordpress $(DATA_DIR)/mariadb
+	@echo -e $(GREEN)"Volumes created."$(NC)
 
-# restart:
-# 	docker compose -f srcs/docker-compose.yml restart
-
-# logs:
-# 	docker compose -f srcs/docker-compose.yml logs
+restart:
+	@echo -e $(YELLOW)"Restarting containers..."$(NC)
+	@docker compose -f srcs/docker-compose.yml restart
+	@echo -e $(YELLOW)"Showing logs..."$(NC)
+	@docker compose -f srcs/docker-compose.yml logs
 
 down:
-	@echo $(RED)"Stopping and removing containers... 🛑"$(NC)
+	@echo -e $(RED)"Stopping and removing containers..."$(NC)
 	@docker compose -f $(COMPOSE_FILE) down
 
 clean: down
-	@echo $(RED)"Cleaning up Docker resources... 🧹"$(NC)
+	@echo -e $(RED)"Cleaning up Docker resources..."$(NC)
 	@docker system prune -a --volumes -f
-	@rm -rf /home/$(USER)/data
+	@sudo rm -rf $(DATA_DIR)
 
 re: clean all
 
