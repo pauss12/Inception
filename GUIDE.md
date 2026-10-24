@@ -84,6 +84,17 @@ done
 chmod 600 secrets/*
 ```
 
+> If `openssl` is not found, install it first: `sudo apk add openssl`.
+
+Check that everything was created:
+
+```sh
+cat srcs/.env      # the variables above
+ls secrets/        # 4 .txt files
+```
+
+> ⚠️ Do not skip this step: without these files, `make` fails with `env file .../srcs/.env not found`.
+
 ## Step 4. Show the files the evaluator checks
 
 | What the evaluator checks | Where to show it |
