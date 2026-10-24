@@ -29,7 +29,7 @@ This document explains, step by step, how to set up the environment from scratch
 | Base image of every container | `alpine:3.23` (penultimate stable Alpine, as required by the subject) |
 | Editor (optional) | VS Code (via Flatpak) |
 
-> The VM user should be your 42 login (`pmendez-`): the data folder must be `/home/<login>/data` and the domain `<login>.42.fr`.
+> The VM user is `pmendez`: the 42 login is `pmendez-`, but a trailing hyphen causes problems in a Linux username. The data folder is in that user's home, `/home/pmendez/data`, and the domain uses the full login, `pmendez-.42.fr`.
 
 ---
 
@@ -75,8 +75,8 @@ Run as `root`:
 
 ```sh
 apk add sudo
-adduser pmendez-
-adduser pmendez- wheel
+adduser pmendez
+adduser pmendez wheel
 visudo
 ```
 
@@ -105,7 +105,7 @@ sudo apk update
 ```sh
 sudo apk add virtualbox-guest-additions
 sudo rc-update add virtualbox-guest-additions default
-sudo adduser pmendez- vboxsf
+sudo adduser pmendez vboxsf
 sudo reboot
 ```
 
@@ -127,7 +127,7 @@ The project is then available at `/media/sf_Inception`.
 sudo apk add docker docker-cli-compose
 sudo rc-update add docker default     # start Docker on every boot
 sudo rc-service docker start          # start it now
-sudo adduser pmendez- docker          # use docker without sudo
+sudo adduser pmendez docker          # use docker without sudo
 ```
 
 Log out and back in, then verify:
@@ -200,7 +200,7 @@ The project runs three containers. Each one does **one** job:
 └─────┼─────────────────────────────────────────┼─────────────────────────────┼───────┘
       │                                         │                             │
       └──────────▶  volume "wordpress"  ◀───────┘                volume "mariadb"
-                 /home/pmendez-/data/wordpress            /home/pmendez-/data/mariadb
+                 /home/pmendez/data/wordpress            /home/pmendez/data/mariadb
 ```
 
 ### 6.2 Two kinds of connection
@@ -399,7 +399,7 @@ Describes the three services and how they are connected.
 The bottom of the file defines the shared pieces:
 
 - **`networks.inception`**: a `bridge` network, Docker's private network type.
-- **`volumes.wordpress` / `volumes.mariadb`**: named volumes whose data is stored in `/home/pmendez-/data/...` (`driver_opts` with `device:` tells Docker *where* on the VM to keep the data).
+- **`volumes.wordpress` / `volumes.mariadb`**: named volumes whose data is stored in `/home/pmendez/data/...` (`driver_opts` with `device:` tells Docker *where* on the VM to keep the data).
 - **`secrets`**: maps each secret name to its file in `../secrets/`.
 
 ### 7.2 nginx
@@ -578,14 +578,14 @@ Run everything from the project root.
 | `make build` | Creates the data folders and builds the images (does not start them) |
 | `make up-<service>` | Starts one service, e.g. `make up-nginx` |
 | `make down` | Stops and removes the containers. **Data is kept** |
-| `make clean` | `down` + `docker system prune -a --volumes -f` + deletes `/home/$USER/data` |
+| `make clean` | `down` + `docker system prune -a --volumes -f` + deletes `/home/pmendez/data` (with `sudo`) |
 | `make re` | `clean` then `make`: full rebuild from zero |
 
 > ⚠️ `make clean` runs `docker system prune -a`, which removes **all** unused Docker images, containers and volumes on the machine, not only this project's. It also deletes the website and the database.
 
 ### 9.2 What `make` does, step by step
 
-1. **`create_dirs`**: `mkdir -p /home/$USER/data/wordpress /home/$USER/data/mariadb`. The volumes need these folders to exist.
+1. **`create_dirs`**: `mkdir -p /home/pmendez/data/wordpress /home/pmendez/data/mariadb`. The volumes need these folders to exist.
 2. **`build`**: `docker compose -f srcs/docker-compose.yml build` runs the three Dockerfiles.
 3. **`up -d`**: creates the network, the volumes and the containers, then starts them in the background, in `depends_on` order:
    1. **mariadb**: on the first start it initialises the database (a few seconds), then serves on 3306.
@@ -657,7 +657,7 @@ USE wordpress; SHOW TABLES;
 ```sh
 docker volume ls                        # srcs_wordpress, srcs_mariadb
 docker volume inspect srcs_wordpress    # "device" shows the folder on the VM
-ls /home/pmendez-/data/wordpress        # the WordPress files, seen from the VM
+ls /home/pmendez/data/wordpress        # the WordPress files, seen from the VM
 ```
 
 To see that both containers share the same files:
@@ -682,8 +682,8 @@ docker network inspect srcs_inception   # lists the 3 containers and their IPs
 
 | Volume | Path in the container | Path on the VM | Contents |
 |---|---|---|---|
-| `srcs_wordpress` | `/var/www/html` (nginx and wordpress) | `/home/pmendez-/data/wordpress` | WordPress files, `wp-config.php`, uploads |
-| `srcs_mariadb` | `/var/lib/mysql` (mariadb) | `/home/pmendez-/data/mariadb` | Database files |
+| `srcs_wordpress` | `/var/www/html` (nginx and wordpress) | `/home/pmendez/data/wordpress` | WordPress files, `wp-config.php`, uploads |
+| `srcs_mariadb` | `/var/lib/mysql` (mariadb) | `/home/pmendez/data/mariadb` | Database files |
 
 Both are **named volumes** (declared under `volumes:` in `docker-compose.yml`), not bind mounts. `driver_opts.device` only tells Docker in which VM folder to keep their data.
 
@@ -703,7 +703,7 @@ The start scripts detect existing data: MariaDB checks for `/var/lib/mysql/mysql
 
 ```sh
 make down
-sudo rm -rf /home/pmendez-/data       # needs sudo: the files belong to the container users
+sudo rm -rf /home/pmendez/data       # needs sudo: the files belong to the container users
 docker volume rm srcs_wordpress srcs_mariadb
 make
 ```
@@ -719,8 +719,8 @@ make
 | `This does not seem to be a WordPress installation` | A previous install stopped halfway and left files in the volume | Reset the data ([11.3](#113-starting-again-from-zero)) |
 | `No space left on device` | The VM disk is full | Free space (`df -h`, `docker system df`) |
 | `cannot expose privileged port 443` | Docker runs in rootless mode | Use a normal (rootful) Docker install, as in [section 3](#3-docker-installation) |
-| `failed to mount local volume ... no such file or directory` | `/home/pmendez-/data/...` does not exist | Run `make` (it creates the folders), and check that your VM user is `pmendez-` |
+| `failed to mount local volume ... no such file or directory` | `/home/pmendez/data/...` does not exist | Run `make` (it creates the folders), and check that your VM user is `pmendez` |
 | The browser cannot find `pmendez-.42.fr` | Missing `/etc/hosts` entry | See [section 4](#4-domain-name) |
 | Browser warning about the certificate | The certificate is self-signed | Expected: accept it |
 | A secret changed but nothing happened | Passwords are only applied on the first start | Reset the data ([11.3](#113-starting-again-from-zero)) |
-| `make clean` fails with `Permission denied` on `/home/.../data` | The files belong to the container users (`mysql`, `nobody`) | `sudo rm -rf /home/pmendez-/data` |
+| `make clean` fails with `Permission denied` on `/home/.../data` | The files belong to the container users (`mysql`, `nobody`) | `sudo rm -rf /home/pmendez/data` |
