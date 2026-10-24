@@ -12,11 +12,38 @@ For how it works inside, see [DEV_DOC.md](DEV_DOC.md).
 ```sh
 cd ~ && rm -rf inception-eval && mkdir inception-eval && cd inception-eval
 ```
+
+![Folder Preparation](.img/guideDoc/folder_preparation.png)
+
+In order to be able to clone the repository, the Virtual Machine must have the SSH key of the GitHub account.
+
+![SSH Key](.img/guideDoc/ssh_keygen.png)
+
+**That key must be added to the GitHub account, in *Settings → SSH and GPG keys → New SSH key*.**
+
 ```sh
 git clone git@github.com:pauss12/Inception.git
-ls -la            # Makefile, srcs/, README.md, USER_DOC.md, DEV_DOC.md
-git ls-files secrets srcs/.env     # must print nothing: no credentials in git
 ```
+
+![Clone](.img/guideDoc/cloning_project.png)
+
+It must show the three folders: `Inception`, `srcs`, `secrets` (the last one is empty). The evaluator checks that no credentials are in git:
+Makefile, srcs/, README.md, USER_DOC.md, DEV_DOC.md
+
+```sh
+cd Inception
+ls -la
+```
+
+![Repository Structure](.img/guideDoc/step.png)
+
+It must print nothing: no credentials in git
+
+```sh
+git ls-files secrets srcs/.env
+```
+
+![No Credentials in Git](.img/guideDoc/check_env.png)
 
 ## Step 2. Clean Docker and the old data
 
@@ -29,7 +56,7 @@ docker stop $(docker ps -qa); docker rm $(docker ps -qa); docker rmi -f $(docker
 That command does not delete the data folder. Delete it too, so the site is installed from zero with the new passwords:
 
 ```sh
-sudo rm -rf /home/pmendez-/data
+sudo rm -rf /home/pmendez/data
 ```
 
 > If the old data is kept and the new secrets are different, WordPress cannot connect to the old database.
@@ -157,7 +184,7 @@ Explanation: the three containers are in a private network created by Docker. In
 
    ```sh
    docker volume ls                         # srcs_wordpress, srcs_mariadb
-   docker volume inspect srcs_wordpress     # "device": "/home/pmendez-/data/wordpress"
+   docker volume inspect srcs_wordpress     # "device": "/home/pmendez/data/wordpress"
    ```
 
 3. **Comment with the normal user**: open https://pmendez-.42.fr/wp-login.php, log in as `pmendez_user` (password: `cat secrets/wp_user_password.txt`), open the "Hello world!" post and add a comment.
@@ -172,7 +199,7 @@ Explanation: the three containers are in a private network created by Docker. In
 2. Volume:
 
    ```sh
-   docker volume inspect srcs_mariadb       # "device": "/home/pmendez-/data/mariadb"
+   docker volume inspect srcs_mariadb       # "device": "/home/pmendez/data/mariadb"
    ```
 
 3. **Log in to the database** (the password is in `secrets/db_password.txt`):
