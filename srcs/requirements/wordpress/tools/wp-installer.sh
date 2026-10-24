@@ -1,48 +1,40 @@
 #!/bin/sh
+# Si cualquier comando falla, el script se para (y Docker reinicia el contenedor)
 set -e
 
-# 1. Leer las contraseñas desde Docker Secrets (igual que en mariadb)
-if [ -f "/run/secrets/db_password" ]; then
-    DB_PASSWORD=$(cat /run/secrets/db_password)
-fi
-if [ -f "/run/secrets/wp_admin_password" ]; then
-    WP_ADMIN_PASSWORD=$(cat /run/secrets/wp_admin_password)
-fi
-if [ -f "/run/secrets/wp_user_password" ]; then
-    WP_USER_PASSWORD=$(cat /run/secrets/wp_user_password)
-fi
+# 1. Leer las contraseñas de los secrets (Docker los deja en /run/secrets/)
+DB_PASSWORD=$(cat /run/secrets/db_password)
+WP_ADMIN_PASSWORD=$(cat /run/secrets/wp_admin_password)
+WP_USER_PASSWORD=$(cat /run/secrets/wp_user_password)
 
-
-# 2. Esperar a que MariaDB esté lista antes de hacer nada
-tries=0
-until mariadb-admin ping -h mariadb --skip-ssl --silent; do
-    tries=$((tries+1))
-    if [ "$tries" -ge 60 ]; then
-      echo "Database did not become ready in time" >&2
-      exit 1
-    fi
-    sleep 3
+# 2. Esperar a que MariaDB responda (puede tardar unos segundos en arrancar)
+#    --skip-ssl: nuestra MariaDB no usa SSL dentro de la red de Docker
+until mariadb-admin ping -h mariadb -u "$DB_USER" -p"$DB_PASSWORD" --skip-ssl --silent; do
+    echo "Esperando a MariaDB..."
+    sleep 2
 done
-echo "Database mariadb is ready."
+echo "MariaDB lista."
 
 # 3. Instalar WordPress solo la primera vez
-#    (si ya existe wp-config.php, el volumen ya tiene WordPress instalado)
-if [ ! -f "/var/www/html/wp-config.php" ]; then
+#    Si wp-config.php ya existe, WordPress ya está instalado en el volumen.
+#    (Todos los comandos "wp" trabajan en /var/www/html, el WORKDIR del Dockerfile.
+#     --allow-root hace falta porque el script se ejecuta como root.)
+if [ ! -f wp-config.php ]; then
 
     # 3.1 Descargar los archivos de WordPress
     wp core download --allow-root
 
-    # 3.2 Crear wp-config.php con los datos de la base de datos
+    # 3.2 Crear wp-config.php: le dice a WordPress cómo conectarse a MariaDB
     wp config create --allow-root \
         --dbname="$DB_NAME" \
         --dbuser="$DB_USER" \
         --dbpass="$DB_PASSWORD" \
-        --dbhost="mariadb:3306"
+        --dbhost=mariadb:3306
 
-    # 3.3 Instalar WordPress y crear el administrador
-    #     (el subject prohíbe que el usuario admin contenga "admin")
+    # 3.3 Crear las tablas en MariaDB y el usuario administrador
+    #     (el subject prohíbe que el nombre del admin contenga "admin")
     wp core install --allow-root \
-        --url="$DOMAIN_NAME" \
+        --url="https://$DOMAIN_NAME" \
         --title="$WP_TITLE" \
         --admin_user="$WP_ADMIN_USER" \
         --admin_password="$WP_ADMIN_PASSWORD" \
@@ -55,10 +47,12 @@ if [ ! -f "/var/www/html/wp-config.php" ]; then
         --user_pass="$WP_USER_PASSWORD"
 fi
 
-# 4. Dar los archivos al usuario con el que corre PHP-FPM ("nobody" en Alpine)
+# 4. Dar los archivos a "nobody", el usuario con el que trabaja PHP-FPM en Alpine
+#    (así WordPress puede subir imágenes, instalar plugins...)
 chown -R nobody:nobody /var/www/html
 
-# 5. Arrancar PHP-FPM en primer plano como PID 1
-#    -F = foreground (si se fuera al fondo, el contenedor se cerraría)
-echo "🚀 Arrancando PHP-FPM como PID 1..."
+# 5. Arrancar PHP-FPM como PID 1
+#    exec: PHP-FPM sustituye a este script (no queda un proceso "sh" por encima)
+#    -F:   en primer plano (si se fuera al fondo, el contenedor se cerraría)
+echo "Arrancando PHP-FPM..."
 exec php-fpm83 -F
