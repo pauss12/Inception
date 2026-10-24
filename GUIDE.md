@@ -53,6 +53,8 @@ The evaluator runs the cleaning command of the scale:
 docker stop $(docker ps -qa); docker rm $(docker ps -qa); docker rmi -f $(docker images -qa); docker volume rm $(docker volume ls -q); docker network rm $(docker network ls -q) 2>/dev/null
 ```
 
+![Docker Clean](.img/guideDoc/docker_clean.png)
+
 That command does not delete the data folder. Delete it too, so the site is installed from zero with the new passwords:
 
 ```sh
@@ -129,7 +131,7 @@ Wait about a minute (first install), then:
 
 ```sh
 docker compose -f srcs/docker-compose.yml ps    # nginx, wordpress, mariadb: "Up"
-docker images                                   # images named nginx, wordpress, mariadb
+docker images                                   # nginx, wordpress, mariadb (tag "inception", not "latest")
 docker logs wordpress                           # ends with "Arrancando PHP-FPM..."
 ```
 
