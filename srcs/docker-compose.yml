@@ -3,7 +3,7 @@ services:
   # NGINX: la única puerta de entrada (puerto 443, HTTPS)
   nginx:
     build: requirements/nginx
-    image: nginx
+    image: nginx:inception
     container_name: nginx
     ports:
       - "443:443"                     # puerto del ordenador : puerto del contenedor
@@ -18,7 +18,7 @@ services:
   # WORDPRESS + PHP-FPM: ejecuta el código PHP (puerto 9000, solo dentro de la red)
   wordpress:
     build: requirements/wordpress
-    image: wordpress
+    image: wordpress:inception
     container_name: wordpress
     env_file: .env                    # variables no secretas (usuarios, dominio...)
     secrets:
@@ -36,7 +36,7 @@ services:
   # MARIADB: la base de datos (puerto 3306, solo dentro de la red)
   mariadb:
     build: requirements/mariadb
-    image: mariadb
+    image: mariadb:inception
     container_name: mariadb
     env_file: .env
     secrets:

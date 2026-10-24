@@ -386,7 +386,7 @@ Describes the three services and how they are connected.
 | Key | What it does |
 |---|---|
 | `build: requirements/<service>` | Builds the image from our own Dockerfile (no ready-made images) |
-| `image: <service>` | The image gets the same name as its service (subject requirement) |
+| `image: <service>:inception` | The image gets the same name as its service (subject requirement), with the tag `inception`. Without a tag, Docker would name it `<service>:latest`, and the `latest` tag is forbidden |
 | `container_name` | Fixed name, so we can write `docker exec nginx ...` |
 | `ports: "443:443"` | Only in nginx: `VM port : container port` |
 | `env_file: .env` | Loads the non-secret variables into the container |
