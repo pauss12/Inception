@@ -1,9 +1,11 @@
+# Configuración del servidor
 [mysqld]
-user                    =   mysql
-bind-address            =   0.0.0.0
-port                    =   3306
-datadir                 =   /var/lib/mysql
-socket                  =   /run/mysqld/mysqld.sock
+user         = mysql                      # usuario del sistema que ejecuta MariaDB
+bind-address = 0.0.0.0                    # aceptar conexiones de otros contenedores
+port         = 3306
+datadir      = /var/lib/mysql             # aquí se guardan los datos (el volumen)
+socket       = /run/mysqld/mysqld.sock
 
+# Configuración común a servidor y clientes (mariadb, mariadb-admin)
 [client-server]
-socket                  =   /run/mysqld/mysqld.sock
+socket       = /run/mysqld/mysqld.sock

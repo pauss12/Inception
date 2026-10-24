@@ -1,35 +1,45 @@
-#!/bin/bash
+#!/bin/sh
+# Si cualquier comando falla, el script se para (y Docker reinicia el contenedor)
 set -e
 
-# 1. Leer contraseñas desde Docker Secrets de forma segura
-if [ -f "/run/secrets/db_password" ]; then
-    DB_PASSWORD=$(cat /run/secrets/db_password)
-fi
+# 1. Leer las contraseñas de los secrets (Docker los deja en /run/secrets/)
+DB_PASSWORD=$(cat /run/secrets/db_password)
+DB_ROOT_PASSWORD=$(cat /run/secrets/db_root_password)
 
-# 2. ADAPTACIÓN A ALPINE: Inicializar la carpeta física si es la primera vez
-if [ ! -d "/var/lib/mysql/mysql" ]; then
+# 2. Preparar la base de datos solo la primera vez
+#    Si existe la carpeta "mysql", el volumen ya tiene una base de datos creada
+if [ ! -d /var/lib/mysql/mysql ]; then
+
+    # 2.1 Crear las tablas internas de MariaDB
     mariadb-install-db --user=mysql --datadir=/var/lib/mysql > /dev/null
 
-    # 3. ARRANCAR EN SEGUNDO PLANO SIN 'SERVICE' (Usando el binario directo de Alpine)
-    /usr/bin/mysqld_safe --user=mysql --skip-networking &
-    pid="$!"
+    # 2.2 Arrancar MariaDB temporalmente, en segundo plano (&) y sin red,
+    #     solo para poder configurarla
+    mariadbd --user=mysql --skip-networking &
 
-    # 4. EL BUCLE DE ESPERA (Esto sí es correcto y se mantiene)
+    # 2.3 Esperar a que responda
     until mariadb-admin ping --silent; do
         sleep 1
     done
 
-    # 5. EJECUTAR LAS QUERIES
-    mariadb -e "CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\`;"
-    mariadb -e "CREATE USER IF NOT EXISTS '${DB_USER}'@'%' IDENTIFIED BY '${DB_PASSWORD}';"
-    mariadb -e "GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'%' WITH GRANT OPTION;"
-    mariadb -e "FLUSH PRIVILEGES;"
+    # 2.4 Configurar: base de datos de WordPress, su usuario y la contraseña de root
+    #     '%' = el usuario puede conectarse desde cualquier contenedor de la red
+    mariadb <<EOF
+DELETE FROM mysql.user WHERE User='';
+DROP DATABASE IF EXISTS test;
+CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\`;
+CREATE USER IF NOT EXISTS '${DB_USER}'@'%' IDENTIFIED BY '${DB_PASSWORD}';
+GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'%';
+ALTER USER 'root'@'localhost' IDENTIFIED BY '${DB_ROOT_PASSWORD}';
+FLUSH PRIVILEGES;
+EOF
 
-    # 6. APAGADO LIMPIO DEL PROCESO TEMPORAL
-    mariadb-admin -u root shutdown
-    wait "$pid"
+    # 2.5 Apagar la MariaDB temporal (root ya tiene contraseña) y esperar a que termine
+    mariadb-admin -u root -p"${DB_ROOT_PASSWORD}" shutdown
+    wait
 fi
 
-# 7. EL EXEC FINAL (Obligatorio para el PID 1 exigido por el sujeto)
-echo "🚀 Arrancando MariaDB como PID 1..."
-exec /usr/bin/mysqld_safe --user=mysql
+# 3. Arrancar MariaDB de verdad como PID 1
+#    exec: MariaDB sustituye a este script (no queda un proceso "sh" por encima)
+echo "Arrancando MariaDB..."
+exec mariadbd --user=mysql
