@@ -1,16 +1,80 @@
 services:
 
+  # NGINX: la única puerta de entrada (puerto 443, HTTPS)
   nginx:
-    build:
-      context: ./nginx
-      Dockerfile: Dockerfile
+    build: requirements/nginx
+    image: nginx
+    container_name: nginx
+    ports:
+      - "443:443"                     # puerto del ordenador : puerto del contenedor
+    volumes:
+      - wordpress:/var/www/html       # ve los mismos archivos que WordPress
+    networks:
+      - inception
+    depends_on:
+      - wordpress                     # arranca después de WordPress
+    restart: unless-stopped           # se reinicia si se cae
 
-  mariadb:
-    build:
-      context: ./mariadb
-      Dockerfile: Dockerfile
-
+  # WORDPRESS + PHP-FPM: ejecuta el código PHP (puerto 9000, solo dentro de la red)
   wordpress:
-    build:
-      context: ./wordpress
-      Dockerfile: Dockerfile
+    build: requirements/wordpress
+    image: wordpress
+    container_name: wordpress
+    env_file: .env                    # variables no secretas (usuarios, dominio...)
+    secrets:
+      - db_password                   # -> /run/secrets/db_password
+      - wp_admin_password             # -> /run/secrets/wp_admin_password
+      - wp_user_password              # -> /run/secrets/wp_user_password
+    volumes:
+      - wordpress:/var/www/html
+    networks:
+      - inception
+    depends_on:
+      - mariadb
+    restart: unless-stopped
+
+  # MARIADB: la base de datos (puerto 3306, solo dentro de la red)
+  mariadb:
+    build: requirements/mariadb
+    image: mariadb
+    container_name: mariadb
+    env_file: .env
+    secrets:
+      - db_password
+      - db_root_password
+    volumes:
+      - mariadb:/var/lib/mysql
+    networks:
+      - inception
+    restart: unless-stopped
+
+# Red privada: dentro de ella cada contenedor se encuentra por su nombre
+networks:
+  inception:
+    driver: bridge
+
+# Volúmenes con nombre; los datos se guardan en /home/pmendez-/data
+volumes:
+  wordpress:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/pmendez-/data/wordpress
+  mariadb:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/pmendez-/data/mariadb
+
+# Archivos con contraseñas (fuera de git)
+secrets:
+  db_password:
+    file: ../secrets/db_password.txt
+  db_root_password:
+    file: ../secrets/db_root_password.txt
+  wp_admin_password:
+    file: ../secrets/wp_admin_password.txt
+  wp_user_password:
+    file: ../secrets/wp_user_password.txt
