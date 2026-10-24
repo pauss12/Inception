@@ -16,7 +16,7 @@ The project runs a **WordPress website** served over HTTPS. It is made of three 
 | **WordPress** | The website itself (PHP-FPM runs the WordPress code) |
 | **MariaDB** | The database: posts, pages, users and settings |
 
-The website files and the database are stored on the machine in `/home/pmendez-/data`, so nothing is lost when the stack is stopped.
+The website files and the database are stored on the machine in `/home/pmendez/data`, so nothing is lost when the stack is stopped.
 
 ---
 
