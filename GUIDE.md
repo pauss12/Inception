@@ -113,11 +113,28 @@ ls secrets/        # 4 .txt files
 
 Quick checks:
 
+Must print nothing: no `network: host`, no `links:`, no `--link` in the Makefile or docker-compose.yml
+
 ```sh
-grep -rnE 'network: *host|links:|--link' Makefile srcs/       # must print nothing
-grep -rnE 'tail -f|sleep infinity|while true' srcs/          # must print nothing
-grep -n '^FROM' srcs/requirements/*/Dockerfile               # alpine:3.23 in the 3 files
+grep -rnE 'network: *host|links:|--link' Makefile srcs/
 ```
+
+![No Network Host or Links](.img/guideDoc/check_network.png)
+
+Must print nothing: no `tail -f`, no `sleep infinity`, no `while true` in the source files
+
+```sh
+grep -rnE 'tail -f|sleep infinity|while true' srcs/
+```
+
+![No Tail or Sleep Infinity](.img/guideDoc/check_sleep_infinity.png)
+
+The following should output: alpine:3.23 in the 3 files
+```sh
+grep -n '^FROM' srcs/requirements/*/Dockerfile
+```
+
+![FROM Alpine](.img/guideDoc/check_dockerfile_versions.png)
 
 Points to explain:
 
@@ -133,11 +150,29 @@ make
 
 Wait about a minute (first install), then:
 
+The nginx, wordpress, mariadb services must all be in state: "Up"
+
 ```sh
-docker compose -f srcs/docker-compose.yml ps    # nginx, wordpress, mariadb: "Up"
-docker images                                   # nginx, wordpress, mariadb (tag "inception", not "latest")
-docker logs wordpress                           # ends with "Arrancando PHP-FPM..."
+docker compose -f srcs/docker-compose.yml ps
 ```
+
+![Containers Up](.img/guideDoc/check_containers_state.png)
+
+The nginx, wordpress, mariadb must have "inception" tag, not "latest"
+
+```sh
+docker images
+```
+
+![Docker Images](.img/guideDoc/check_docker_images.png)
+
+It must end with "Arrancando PHP-FPM..."
+
+```sh
+docker logs wordpress
+```
+
+![WordPress Logs](.img/guideDoc/check_wordpress_logs.png)
 
 ## Step 6. Explain the basics (activity overview)
 
@@ -153,16 +188,32 @@ Be ready to explain, with simple words:
 
 ## Step 7. README and documentation
 
+Check Italic in README.md
+
+![Check Italic](.img/guideDoc/check_italic.png)
+
+Check if the README.md contains the following sections: Description, Instructions, Resources (with the use of AI), Project description
+
 ```sh
-head -1 README.md       # the italic line with the login
-grep -n '^## ' README.md   # Description, Instructions, Resources (with the use of AI), Project description
-ls USER_DOC.md DEV_DOC.md
+grep -n '^## ' README.md
 ```
+
+![Check Sections](.img/guideDoc/check_readme_structure.png)
+
+The evaluator must check that the USER_DOC.md and DEV_DOC.md files exist and are not empty:
+
+```sh
+ls -ltr USER_DOC.md DEV_DOC.md
+```
+
+![Check Documentation](.img/guideDoc/check_user_dev_docs.png)
 
 ## Step 8. NGINX, port 443 only, TLS
 
+The following command shows the three containers are running, and that nginx exposes port 443 only:
+
 ```sh
-docker compose -f srcs/docker-compose.yml ps    # only nginx publishes a port: 443
+docker compose -f srcs/docker-compose.yml ps
 ```
 
 1. **HTTP does not work** (no port 80):
