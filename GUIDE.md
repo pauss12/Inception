@@ -5,7 +5,9 @@ Step-by-step guide to show the project during the defense. It follows the order 
 For everyday use of the stack, see [USER_DOC.md](USER_DOC.md). 
 For how it works inside, see [DEV_DOC.md](DEV_DOC.md).
 
-> **Before the defense day:** make sure `/etc/hosts` contains `127.0.0.1 pmendez-.42.fr`, that `curl` and `openssl` are installed in the VM (`sudo apk add curl openssl`), and that Docker starts on boot (`sudo rc-update add docker default`).
+> **Before the defense day:** make sure `/etc/hosts` contains `127.0.0.1 pmendez.42.fr`, that `curl` and `openssl` are installed in the VM (`sudo apk add curl openssl`), and that Docker starts on boot (`sudo rc-update add docker default`).
+
+> **If long commands go back to the start of the line** and write over the prompt, the shell has the wrong terminal width. It is only visual: pressing Enter still runs the full command. To fix it, run `stty size` (it prints `rows cols`) and set the real size, for example `stty rows 40 cols 160`. Running `reset` also helps if the terminal is left in a strange state.
 
 ## Step 1. Clone the repository in an empty folder
 
@@ -16,6 +18,10 @@ cd ~ && rm -rf inception-eval && mkdir inception-eval && cd inception-eval
 ![Folder Preparation](.img/guideDoc/folder_preparation.png)
 
 In order to be able to clone the repository, the Virtual Machine must have the SSH key of the GitHub account.
+
+```sh
+ssh-keygen
+```
 
 ![SSH Key](.img/guideDoc/ssh_keygen.png)
 
@@ -71,7 +77,7 @@ They are not in git (on purpose), so they are created now, in front of the evalu
 
 ```sh
 cat > srcs/.env << 'END'
-DOMAIN_NAME=pmendez-.42.fr
+DOMAIN_NAME=pmendez.42.fr
 DB_NAME=wordpress
 DB_USER=wpuser
 WP_TITLE=Inception
@@ -148,6 +154,8 @@ Points to explain:
 make
 ```
 
+![Make Run](.img/guideDoc/check_make.png)
+
 Wait about a minute (first install), then:
 
 The nginx, wordpress, mariadb services must all be in state: "Up"
@@ -216,20 +224,33 @@ The following command shows the three containers are running, and that nginx exp
 docker compose -f srcs/docker-compose.yml ps
 ```
 
+![check PS](.img/guideDoc/check_nginx_ps.png)
+
+Before testing, the domain must point to the VM. Check `/etc/hosts` and add the line if it is missing (otherwise `curl` and `openssl` wait trying to resolve the name and the terminal looks frozen):
+
+```sh
+cat /etc/hosts
+```
+
+![Check Hosts](.img/guideDoc/check_hostname.png)
+
+All the commands below have a time limit (`--max-time 5` / `timeout 5`), so they never block the terminal. If a command still gets stuck, press `Ctrl+C`.
+
 1. **HTTP does not work** (no port 80):
+	Must show "Connection refused"
 
    ```sh
-   curl -I http://pmendez-.42.fr      # "Connection refused"
+   curl -I --max-time 5 http://pmendez.42.fr
    ```
 
-2. **HTTPS works**: open **https://pmendez-.42.fr** in the browser. Accept the self-signed certificate warning. The WordPress site appears directly, **not** the installation page.
+2. **HTTPS works**: open **https://pmendez.42.fr** in the browser. Accept the self-signed certificate warning. The WordPress site appears directly, **not** the installation page.
 
 3. **TLS v1.2 / v1.3 are used**:
 
    ```sh
-   openssl s_client -connect pmendez-.42.fr:443 -tls1_2 </dev/null 2>/dev/null | grep -E 'Protocol|Cipher is'   # TLSv1.2 works
-   openssl s_client -connect pmendez-.42.fr:443 -tls1_3 </dev/null 2>/dev/null | grep -E 'Protocol|Cipher is'   # TLSv1.3 works
-   curl -kI --tlsv1.1 --tls-max 1.1 https://pmendez-.42.fr       # fails: TLS 1.1 is refused
+   timeout 5 openssl s_client -connect pmendez.42.fr:443 -tls1_2 </dev/null 2>/dev/null | grep -E 'Protocol|Cipher is'   # TLSv1.2 works
+   timeout 5 openssl s_client -connect pmendez.42.fr:443 -tls1_3 </dev/null 2>/dev/null | grep -E 'Protocol|Cipher is'   # TLSv1.3 works
+   curl -kI --max-time 5 --tlsv1.1 --tls-max 1.1 https://pmendez.42.fr       # fails: TLS 1.1 is refused
    ```
 
    In the browser: click the padlock → *Connection* / *Certificate* details also shows the TLS version.
@@ -255,9 +276,9 @@ Explanation: the three containers are in a private network created by Docker. In
    docker volume inspect srcs_wordpress     # "device": "/home/pmendez/data/wordpress"
    ```
 
-3. **Comment with the normal user**: open https://pmendez-.42.fr/wp-login.php, log in as `pmendez_user` (password: `cat secrets/wp_user_password.txt`), open the "Hello world!" post and add a comment.
+3. **Comment with the normal user**: open https://pmendez.42.fr/wp-login.php, log in as `pmendez_user` (password: `cat secrets/wp_user_password.txt`), open the "Hello world!" post and add a comment.
    If the comment shows *"Your comment is awaiting moderation"*, that is the normal WordPress behaviour: the administrator approves it in the next step.
-4. **Administrator**: log out, log in as `pmendez_boss` (password: `cat secrets/wp_admin_password.txt`). The username does not contain "admin". The dashboard opens at https://pmendez-.42.fr/wp-admin.
+4. **Administrator**: log out, log in as `pmendez_boss` (password: `cat secrets/wp_admin_password.txt`). The username does not contain "admin". The dashboard opens at https://pmendez.42.fr/wp-admin.
    - If the comment was pending: *Comments* → *Approve*.
 5. **Edit a page**: *Pages* → *Sample Page* → change the text → *Save* / *Update*. Open the page on the website and show the change.
 
@@ -303,7 +324,7 @@ docker ps          # the containers start again by themselves (restart: unless-s
 make               # if they are not running, start them
 ```
 
-Open https://pmendez-.42.fr again: the edited page and the comment are still there, and the admin can still log in. `docker logs wordpress` shows no new installation (`wp-config.php` already existed in the volume).
+Open https://pmendez.42.fr again: the edited page and the comment are still there, and the admin can still log in. `docker logs wordpress` shows no new installation (`wp-config.php` already existed in the volume).
 
 ## Step 13. Configuration modification
 
@@ -319,22 +340,22 @@ make down && make
 2. `srcs/requirements/nginx/Dockerfile`: `EXPOSE 443` → `EXPOSE 8443`
 3. `srcs/docker-compose.yml`: `"443:443"` → `"8443:8443"`
 4. `make down && make`
-5. WordPress stores its address (`https://pmendez-.42.fr`), so it would redirect to port 443. Update it:
+5. WordPress stores its address (`https://pmendez.42.fr`), so it would redirect to port 443. Update it:
 
    ```sh
-   docker exec wordpress wp option update home    https://pmendez-.42.fr:8443 --allow-root
-   docker exec wordpress wp option update siteurl https://pmendez-.42.fr:8443 --allow-root
+   docker exec wordpress wp option update home    https://pmendez.42.fr:8443 --allow-root
+   docker exec wordpress wp option update siteurl https://pmendez.42.fr:8443 --allow-root
    ```
 
-6. Open **https://pmendez-.42.fr:8443**.
+6. Open **https://pmendez.42.fr:8443**.
 
-To undo it: revert the three files, `make down && make`, and run the two commands again with `https://pmendez-.42.fr`.
+To undo it: revert the three files, `make down && make`, and run the two commands again with `https://pmendez.42.fr`.
 
 ### Example B: change PHP-FPM's port (9000 → 9001)
 
 1. `srcs/requirements/wordpress/Dockerfile`: `listen = 9000` → `listen = 9001` in the `sed` line, and `EXPOSE 9000` → `EXPOSE 9001`
 2. `srcs/requirements/nginx/conf/nginx.conf`: `fastcgi_pass wordpress:9000;` → `fastcgi_pass wordpress:9001;`
-3. `make down && make`, then open https://pmendez-.42.fr: it still works.
+3. `make down && make`, then open https://pmendez.42.fr: it still works.
 
 ### Example C: change MariaDB's port (3306 → 3307)
 
@@ -348,4 +369,4 @@ To undo it: revert the three files, `make down && make`, and run the two command
    docker exec wordpress wp config set DB_HOST mariadb:3307 --allow-root
    ```
 
-6. Open https://pmendez-.42.fr: it still works.
+6. Open https://pmendez.42.fr: it still works.

@@ -29,7 +29,7 @@ This document explains, step by step, how to set up the environment from scratch
 | Base image of every container | `alpine:3.23` (penultimate stable Alpine, as required by the subject) |
 | Editor (optional) | VS Code (via Flatpak) |
 
-> The VM user is `pmendez`: the 42 login is `pmendez-`, but a trailing hyphen causes problems in a Linux username. The data folder is in that user's home, `/home/pmendez/data`, and the domain uses the full login, `pmendez-.42.fr`.
+> The VM user is `pmendez`: the 42 login is `pmendez-`, but a trailing hyphen causes problems in a Linux username. The data folder is in that user's home, `/home/pmendez/data`, and the domain uses the full login, `pmendez.42.fr`.
 
 ---
 
@@ -147,10 +147,10 @@ docker run --rm hello-world
 
 ## 4. Domain name
 
-The site must be reachable at `pmendez-.42.fr`. That name does not exist on the Internet, so we tell the VM that it points to itself (`127.0.0.1`):
+The site must be reachable at `pmendez.42.fr`. That name does not exist on the Internet, so we tell the VM that it points to itself (`127.0.0.1`):
 
 ```sh
-echo "127.0.0.1 pmendez-.42.fr" | sudo tee -a /etc/hosts
+echo "127.0.0.1 pmendez.42.fr" | sudo tee -a /etc/hosts
 ```
 
 ---
@@ -191,7 +191,7 @@ The project runs three containers. Each one does **one** job:
 
 ```
  Browser
-    │  https://pmendez-.42.fr  (port 443, TLS)
+    │  https://pmendez.42.fr  (port 443, TLS)
     ▼
 ┌──────────────────────────── Docker network "inception" ────────────────────────────┐
 │                                                                                     │
@@ -225,7 +225,7 @@ Because the data lives on the VM and not inside the containers, it **survives** 
 
 ### 6.3 What happens when someone visits the site
 
-1. The browser asks for `https://pmendez-.42.fr/`. The request reaches **nginx** on port 443.
+1. The browser asks for `https://pmendez.42.fr/`. The request reaches **nginx** on port 443.
 2. nginx checks the URL against its config:
    - A static file (CSS, image, JS)? nginx reads it from `/var/www/html` (the shared volume) and sends it back. PHP is not involved.
    - A `.php` file, or a "pretty" URL like `/hello-world/`? nginx forwards the request to **PHP-FPM** at `wordpress:9000`.
@@ -407,7 +407,7 @@ The bottom of the file defines the shared pieces:
 **`Dockerfile`**
 
 1. Installs `nginx` and `openssl`.
-2. Creates a **self-signed TLS certificate** for `pmendez-.42.fr` (`openssl req -x509 ...`). "Self-signed" means no authority signed it, so the browser shows a warning. That is expected.
+2. Creates a **self-signed TLS certificate** for `pmendez.42.fr` (`openssl req -x509 ...`). "Self-signed" means no authority signed it, so the browser shows a warning. That is expected.
 3. Copies `conf/nginx.conf` over Alpine's default site config.
 4. Exposes port 443.
 5. Starts nginx in the foreground (`daemon off;`).
@@ -511,7 +511,7 @@ Configuration is split in two:
 ```sh
 cat > srcs/.env << 'EOF'
 # Domain
-DOMAIN_NAME=pmendez-.42.fr
+DOMAIN_NAME=pmendez.42.fr
 
 # Database
 DB_NAME=wordpress
@@ -600,19 +600,19 @@ docker logs wordpress                      # must end with "Arrancando PHP-FPM..
 docker logs mariadb                        # must show "ready for connections"
 ```
 
-Then open `https://pmendez-.42.fr` in the browser. The browser warns about the self-signed certificate: accept it to continue.
+Then open `https://pmendez.42.fr` in the browser. The browser warns about the self-signed certificate: accept it to continue.
 
 | URL | Page |
 |---|---|
-| `https://pmendez-.42.fr` | The website |
-| `https://pmendez-.42.fr/wp-admin` | Administration panel (log in with `WP_ADMIN_USER` and `secrets/wp_admin_password.txt`) |
+| `https://pmendez.42.fr` | The website |
+| `https://pmendez.42.fr/wp-admin` | Administration panel (log in with `WP_ADMIN_USER` and `secrets/wp_admin_password.txt`) |
 
 Check TLS from the terminal:
 
 ```sh
-curl -kI https://pmendez-.42.fr                       # works
-curl -kI --tlsv1.1 --tls-max 1.1 https://pmendez-.42.fr  # must fail (TLS 1.1 refused)
-curl -I http://pmendez-.42.fr                         # must fail (no port 80)
+curl -kI https://pmendez.42.fr                       # works
+curl -kI --tlsv1.1 --tls-max 1.1 https://pmendez.42.fr  # must fail (TLS 1.1 refused)
+curl -I http://pmendez.42.fr                         # must fail (no port 80)
 ```
 
 ---
@@ -720,7 +720,7 @@ make
 | `No space left on device` | The VM disk is full | Free space (`df -h`, `docker system df`) |
 | `cannot expose privileged port 443` | Docker runs in rootless mode | Use a normal (rootful) Docker install, as in [section 3](#3-docker-installation) |
 | `failed to mount local volume ... no such file or directory` | `/home/pmendez/data/...` does not exist | Run `make` (it creates the folders), and check that your VM user is `pmendez` |
-| The browser cannot find `pmendez-.42.fr` | Missing `/etc/hosts` entry | See [section 4](#4-domain-name) |
+| The browser cannot find `pmendez.42.fr` | Missing `/etc/hosts` entry | See [section 4](#4-domain-name) |
 | Browser warning about the certificate | The certificate is self-signed | Expected: accept it |
 | A secret changed but nothing happened | Passwords are only applied on the first start | Reset the data ([11.3](#113-starting-again-from-zero)) |
 | `make clean` fails with `Permission denied` on `/home/.../data` | The files belong to the container users (`mysql`, `nobody`) | `sudo rm -rf /home/pmendez/data` |

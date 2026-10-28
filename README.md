@@ -31,7 +31,7 @@ The containers talk to each other through a private Docker network, and the webs
 - The domain pointing to the machine:
 
 ```sh
-echo "127.0.0.1 pmendez-.42.fr" | sudo tee -a /etc/hosts
+echo "127.0.0.1 pmendez.42.fr" | sudo tee -a /etc/hosts
 ```
 
 ### Configuration
@@ -58,7 +58,7 @@ openssl rand -base64 18 > secrets/wp_user_password.txt
 | `make clean` | Remove containers, images, volumes and data |
 | `make re` | Rebuild everything from zero |
 
-Then open **https://pmendez-.42.fr** (the certificate is self-signed, so the browser shows a warning: accept it). The administration panel is at **https://pmendez-.42.fr/wp-admin**.
+Then open **https://pmendez.42.fr** (the certificate is self-signed, so the browser shows a warning: accept it). The administration panel is at **https://pmendez.42.fr/wp-admin**.
 
 More documentation:
 

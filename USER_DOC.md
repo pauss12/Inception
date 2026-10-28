@@ -12,7 +12,7 @@ The project runs a **WordPress website** served over HTTPS. It is made of three 
 
 | Service | What it does |
 |---|---|
-| **NGINX** | The web server. It receives every visit on `https://pmendez-.42.fr` (port 443) and is the only part reachable from outside |
+| **NGINX** | The web server. It receives every visit on `https://pmendez.42.fr` (port 443) and is the only part reachable from outside |
 | **WordPress** | The website itself (PHP-FPM runs the WordPress code) |
 | **MariaDB** | The database: posts, pages, users and settings |
 
@@ -38,16 +38,16 @@ The website files and the database are stored on the machine in `/home/pmendez/d
 
 ## 3. Access the website and the administration panel
 
-> The machine must know the domain. If the site does not open, check that `/etc/hosts` contains the line `127.0.0.1 pmendez-.42.fr`.
+> The machine must know the domain. If the site does not open, check that `/etc/hosts` contains the line `127.0.0.1 pmendez.42.fr`.
 
 | What | Address |
 |---|---|
-| Website | **https://pmendez-.42.fr** |
-| Administration panel | **https://pmendez-.42.fr/wp-admin** |
+| Website | **https://pmendez.42.fr** |
+| Administration panel | **https://pmendez.42.fr/wp-admin** |
 
 The first time, the browser warns that the connection is not private. This is expected: the HTTPS certificate is self-signed (created by the project, not by an official authority). Click *Advanced* → *Accept the risk / Continue*.
 
-Only HTTPS works: `http://pmendez-.42.fr` (without the **s**) does not open.
+Only HTTPS works: `http://pmendez.42.fr` (without the **s**) does not open.
 
 ---
 
@@ -98,7 +98,7 @@ docker logs mariadb        # must contain "ready for connections"
 ### 5.3 The website answers
 
 ```sh
-curl -kI https://pmendez-.42.fr          # first line: HTTP/1.1 200 OK
+curl -kI https://pmendez.42.fr          # first line: HTTP/1.1 200 OK
 ```
 
 Or simply open the website in the browser and log in to the administration panel.
@@ -115,7 +115,7 @@ It lists the two WordPress users: the administrator and the author.
 
 | Problem | What to do |
 |---|---|
-| The browser cannot find `pmendez-.42.fr` | Add `127.0.0.1 pmendez-.42.fr` to `/etc/hosts` |
+| The browser cannot find `pmendez.42.fr` | Add `127.0.0.1 pmendez.42.fr` to `/etc/hosts` |
 | The browser shows a "connection refused" error | Make sure the containers are running (`docker ps`) and the ports are correctly mapped |
 | The browser shows a "connection timed out" error | Check the firewall settings and make sure the ports are open |
 | The browser shows a "SSL connection error" | This is usually due to the self-signed certificate. Accept it (see section 3) |
