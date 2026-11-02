@@ -396,19 +396,73 @@ sudo whoami
 
 Alpine has no desktop by default. XFCE is light and runs smoothly in a VM. Run everything as `pmendez-`, with `sudo`.
 
-Install the desktop. Alpine's `setup-desktop` script installs Xorg, XFCE, LightDM (the graphical login screen) and dbus, and enables their services:
+#### Install the desktop
+
+Alpine's `setup-desktop` script installs Xorg, XFCE, LightDM (the graphical login screen) and dbus, and enables their services:
 
 ```sh
 sudo setup-desktop xfce
 ```
 
-Install the graphics driver for the VMSVGA controller:
+Check that the three main packages are installed. It must print `xfce4`, `lightdm` and `dbus`:
 
 ```sh
-sudo apk add xf86-video-vmware mesa-dri-gallium
+apk info -e xfce4 lightdm dbus
 ```
 
-![Install XFCE](.img/devDoc/install_graphics_driver.png)
+> If one is missing, `setup-desktop` stopped halfway (for example, because the network went down while it was running). Check the network ([section 2.4](#24-check-the-network-and-the-repositories)) and run `sudo setup-desktop xfce` again: it keeps what is installed and completes the rest.
+
+#### Load the drivers on every boot
+
+`setup-desktop` changes the device manager of Alpine from `mdev` to `udev`, the service that loads the drivers when the system boots. In this VM, after that change, the drivers were not loaded at boot: there was no network (`ip link` only showed `lo`) and no graphics card (`/dev/dri/card0` did not exist). To be safe, list both drivers in `/etc/modules`, the file of drivers that Alpine always loads at boot.
+
+Find the network card. It prints the path of the device whose class is `0x0200` (Ethernet):
+
+```sh
+grep -l 0x0200 /sys/bus/pci/devices/*/class
+```
+
+Show its manufacturer, using the folder printed above (here `0000:00:03.0`):
+
+```sh
+cat /sys/bus/pci/devices/0000:00:03.0/vendor
+```
+
+| Vendor | VirtualBox adapter type | Driver |
+|---|---|---|
+| `0x1022` | PCnet-FAST III | `pcnet32` |
+| `0x8086` | Intel PRO/1000 MT | `e1000` |
+| `0x1af4` | Paravirtualized network (virtio-net) | `virtio_net` |
+
+Add the network driver (here `pcnet32`, the default adapter of VirtualBox):
+
+```sh
+echo pcnet32 | sudo tee -a /etc/modules
+```
+
+Add the graphics driver of the VMSVGA controller:
+
+```sh
+echo vmwgfx | sudo tee -a /etc/modules
+```
+
+Check the file. Both drivers must be at the end:
+
+```sh
+cat /etc/modules
+```
+
+#### Graphics
+
+Install the Mesa drivers (3D rendering done by the CPU, used by the desktop):
+
+```sh
+sudo apk add mesa-dri-gallium
+```
+
+> **Do not install `xf86-video-vmware`.** It is the old Xorg driver for VMware/VMSVGA graphics, and it crashes Xorg: it tries to access the memory of the graphics card directly, but the kernel driver `vmwgfx` already owns it. The log shows `(EE) vmware(0): Unable to map mmio BAR` followed by `Segmentation fault`, and the screen stays black. Without it, Xorg uses its generic driver, `modesetting`, which works on top of `vmwgfx`. If it was installed, remove it with `sudo apk del xf86-video-vmware`.
+
+#### VirtualBox guest additions
 
 Check the name of the VirtualBox guest additions packages:
 
@@ -434,15 +488,23 @@ Start the guest additions on every boot:
 sudo rc-update add virtualbox-guest-additions default
 ```
 
-Check that LightDM starts on every boot. It must show `lightdm | default`:
+#### Services
+
+LightDM needs dbus: without it, its log shows `Failed to get system bus` and the login screen does not appear. Check that both start on every boot. It must show `dbus | default` and `lightdm | default`:
 
 ```sh
-rc-update show | grep lightdm
+rc-update show default
 ```
 
 ![Check lightdm](.img/devDoc/final_guest_additions_checks.png)
 
-Reboot:
+If `dbus` is missing, add it:
+
+```sh
+sudo rc-update add dbus default
+```
+
+#### Reboot
 
 ```sh
 sudo reboot
@@ -451,6 +513,44 @@ sudo reboot
 The graphical login screen appears. Log in as `pmendez-`.
 
 > The keyboard of the desktop is configured apart from the text console. If it types in English, go to **Applications → Settings → Keyboard → Layout**, uncheck *Use system defaults*, add **Spanish** and remove **English**.
+
+#### If the screen stays black
+
+With a black screen, the keyboard shortcuts to go back to the text console may not work. Two ways to get a terminal:
+- Restart the VM from the VirtualBox menu, **Machine → Reset**, and log in on the text console before LightDM starts, or
+- connect from the host by SSH (`sshd` is running).
+
+Then read the logs.
+
+Status of the services. `udev`, `dbus` and `lightdm` must be `started`:
+
+```sh
+rc-status
+```
+
+Log of LightDM. `greeter display server failed to start` means that Xorg crashed:
+
+```sh
+sudo tail -n 40 /var/log/lightdm/lightdm.log
+```
+
+Log of Xorg. The reason of a crash is at the end, not always in an `(EE)` line:
+
+```sh
+sudo tail -n 50 /var/log/lightdm/x-0.log
+```
+
+If the log is not enough, start Xorg by hand on a separate display (`:1`), with full detail. Stop it with **Ctrl+C** if it does not end by itself (that means it started fine):
+
+```sh
+sudo Xorg :1 -verbose 7 2>&1 | tail -n 60
+```
+
+After fixing the problem, start the login screen again without rebooting:
+
+```sh
+sudo rc-service lightdm restart
+```
 
 ---
 
