@@ -64,7 +64,7 @@ docker stop $(docker ps -qa); docker rm $(docker ps -qa); docker rmi -f $(docker
 That command does not delete the data folder. Delete it too, so the site is installed from zero with the new passwords:
 
 ```sh
-sudo rm -rf /home/pmendez/data
+sudo rm -rf /home/pmendez-/data
 ```
 
 ![Data Folder Removal](.img/guideDoc/data_folder_removal.png)
@@ -273,7 +273,7 @@ Explanation: the three containers are in a private network created by Docker. In
 
    ```sh
    docker volume ls                         # srcs_wordpress, srcs_mariadb
-   docker volume inspect srcs_wordpress     # "device": "/home/pmendez/data/wordpress"
+   docker volume inspect srcs_wordpress     # "device": "/home/pmendez-/data/wordpress"
    ```
 
 3. **Comment with the normal user**: open https://pmendez.42.fr/wp-login.php, log in as `pmendez_user` (password: `cat secrets/wp_user_password.txt`), open the "Hello world!" post and add a comment.
@@ -288,7 +288,7 @@ Explanation: the three containers are in a private network created by Docker. In
 2. Volume:
 
    ```sh
-   docker volume inspect srcs_mariadb       # "device": "/home/pmendez/data/mariadb"
+   docker volume inspect srcs_mariadb       # "device": "/home/pmendez-/data/mariadb"
    ```
 
 3. **Log in to the database** (the password is in `secrets/db_password.txt`):

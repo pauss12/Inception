@@ -29,7 +29,7 @@ This document explains, step by step, how to set up the environment from scratch
 | Base image of every container | `alpine:3.23` (penultimate stable Alpine, as required by the subject) |
 | Editor (optional) | VS Code (via Flatpak) |
 
-> The VM user is `pmendez`: the 42 login is `pmendez-`, but a trailing hyphen causes problems in a Linux username. The data folder is in that user's home, `/home/pmendez/data`, and the domain uses the full login, `pmendez.42.fr`.
+> The 42 login is `pmendez-`. The data folder uses the full login, `/home/pmendez-/data` (created by `make` with `sudo`, since `/home` belongs to root). The domain is `pmendez.42.fr` **without the hyphen**: a DNS label cannot end with a hyphen (RFC 952 / RFC 1123, section 2.1), so `pmendez-.42.fr` is not a valid hostname. The VM user is `pmendez-` (a username, unlike a hostname, can end with a hyphen) and the VM hostname is `pmendez`.
 
 ---
 
@@ -37,46 +37,317 @@ This document explains, step by step, how to set up the environment from scratch
 
 ### 2.1 Create the VM
 
-1. Download an Alpine Linux ISO from [https://alpinelinux.org/downloads/](https://alpinelinux.org/downloads/).
+1. Download the Alpine Linux ISO from [https://alpinelinux.org/downloads/](https://alpinelinux.org/downloads/): **Standard → x86_64**.
 
-2. Create a new VirtualBox VM (Linux, other 64-bit) with at least 2 CPUs, 4 GB RAM and 20 GB disk.
+   > The *Virtual* ISO is smaller, but its kernel lacks some graphics drivers. With *Standard*, the display and the resizing of the window work without problems.
+
+2. In VirtualBox, click **New** and create the VM with at least 2 CPUs, 4 GB RAM and 30 GB disk.
 
 ![VirtualBox VM settings](.img/devDoc/setup_1.png)
 
+**Name and operating system.** VirtualBox has no Alpine type, so it is **Other / Other/Unknown (64-bit)**. Because it cannot recognise the ISO, the unattended installation is disabled (the *Skip unattended installation* box is grey): Alpine is installed by hand, in [section 2.2](#22-install-alpine-on-the-disk).
+
 ![Ram and CPU](.img/devDoc/ram_needed.png)
 
-3. Boot the VM.
+**Hardware.** 4096 MB of RAM and 2 CPUs. Alpine and the three containers run with 2 GB, but the browser inside the VM (to open `https://pmendez.42.fr`) needs more. Never give the VM more than half of the host's RAM. EFI stays **disabled**.
 
-![VM running](.img/devDoc/virtualbox.png)
+![Disk Space](.img/devDoc/disk_space.png)
 
-![Once booted](.img/devDoc/once_booted.png)
+**Virtual hard disk.** 30 GB, with *Pre-allocate full size* **unchecked**: the disk is dynamic, so the `.vdi` file only takes the space really used (1-2 GB at the beginning) and grows when needed. Docker needs room: images, build cache and the volumes of WordPress and MariaDB.
 
-4. Install Alpine Linux from the official ISO using `setup-alpine`.
+![Last step](.img/devDoc/last_vm_creation_step.png)
 
-![alt text](.img/devDoc/repositories.png)
+**Summary.** Check the values and click **Finish**.
 
-5. Install a desktop environment:
+3. Before booting, open **Settings → Display**:
 
-To make it possible to use graphical applications, you need to change this on VM settings: *Settings → Screen → Graphics Controller → VBoxVGA*.
+![Display settings](.img/devDoc/display_configuration.png)
 
-Change it from `VBoxVGA` to `VMSVGA` and also, you need to increase the video memory up to 128, for example.
+**Display.** Video memory **128 MB**, graphics controller **VMSVGA** and 3D acceleration **disabled**. VMSVGA is the controller that works best with Linux (VBoxVGA is old), and 3D acceleration often causes a black screen or lag. The *Invalid settings detected* message at the bottom is only a warning, because VirtualBox does not know which OS this is: it can be ignored.
 
-![alt text](.img/devDoc/controlador_grafico.png)
+4. Optional, to make the VM lighter and faster (same *Settings* window):
+   - **System → Boot order**: uncheck *Floppy*.
+   - **Network → Adapter 1 → Advanced → Adapter type**: *Paravirtualized network (virtio-net)* or *Intel PRO/1000 MT Desktop* instead of *PCnet-FAST III*, which emulates a very old and slow card.
+   - **Audio**: disable it, the project does not need it.
 
-To install XFCE, run:
+![VM Summary](.img/devDoc/vm_summary.png)
+
+The final configuration of the VM: 4096 MB, 2 CPUs, VMSVGA with 128 MB, the 30 GB disk and the Alpine ISO in the optical drive, ready to boot.
+
+5. Click **Start**.
+
+The VM boots from the ISO. This is only the installer: a live Alpine with nothing installed and no graphical interface.
+
+![VM booting](.img/devDoc/vm_booted.png)
+
+### 2.2 Install Alpine on the disk
+
+Log in as `root` (no password) and run:
 
 ```sh
-setup-desktop xfce
+setup-alpine
 ```
 
-### 2.2 Create the user and grant sudo
+It asks a series of questions. When the answer is **Enter**, the value between brackets `[...]` is already the right one.
 
-Run as `root`:
+#### Step 1. Keyboard
+
+```
+Select keyboard layout: [none]
+```
+→ `es`
+
+```
+Select variant (or 'abort'):
+```
+→ `es`
+
+#### Step 2. Hostname
+
+```
+Enter system hostname (fully qualified form, e.g. 'foo.example.org') [localhost]
+```
+→ `pmendez`
+
+> The hostname cannot end with a hyphen (same rule as the domain), so it is `pmendez`, not `pmendez-`. It is only the name of the VM: the domain `pmendez.42.fr` is configured later, in [section 4](#4-domain-name).
+
+#### Step 3. Network
+
+```
+Which one do you want to initialize? (or '?' or 'done') [eth0]
+```
+→ **Enter**
+
+> The interface may be called `eth1` instead of `eth0`. The name does not matter: press **Enter** anyway. If **both** `eth0` and `eth1` appear, the VM has two network adapters enabled in VirtualBox: initialize `eth0` with `dhcp`, then `eth1` with `dhcp`, and type `done` when it asks again.
+
+```
+Ip address for eth0? (or 'dhcp', 'none', '?') [dhcp]
+```
+→ **Enter** (with NAT, VirtualBox gives the IP automatically)
+
+```
+Do you want to do any manual network configuration? (y/n) [n]
+```
+→ **Enter**
+
+#### Step 4. Root password
+
+```
+New password:
+Retype password:
+```
+Type it twice. Nothing is shown while typing: that is normal.
+
+#### Step 5. Timezone
+
+```
+Which timezone are you in? [UTC]
+```
+→ `Europe/Madrid`
+
+#### Step 6. Proxy
+
+```
+HTTP/FTP proxy URL? (e.g. 'http://proxy:8080', or 'none') [none]
+```
+→ **Enter**
+
+#### Step 7. Clock synchronization
+
+```
+Which NTP client to run? ('busybox', 'openntpd', 'chrony' or 'none') [chrony]
+```
+→ **Enter**
+
+#### Step 8. Mirror
+
+A long list of servers is shown, and then:
+
+```
+Enter mirror number or URL: [1]
+```
+→ `f` (for the **fastest** mirror, which is usually the best choice)
+
+#### Step 9. User
+
+```
+Setup a user? (enter a lower-case loginname, or 'no') [no]
+```
+→ `pmendez-`
+
+> A Linux username can end with a hyphen (it only cannot start with one), so the user keeps the full 42 login. That way the data folder `/home/pmendez-/data` is inside the user's own home.
+
+```
+Full name for user pmendez- [pmendez-]
+```
+→ **Enter**
+
+```
+New password:
+Retype password:
+```
+Type the user's password twice.
+
+```
+Enter ssh key or URL for pmendez- (or 'none') [none]
+```
+→ **Enter**
+
+#### Step 10. SSH server
+
+```
+Which ssh server? ('openssh', 'dropbear' or 'none') [openssh]
+```
+→ **Enter**
+
+```
+Allow root ssh login? ('?' for help) [prohibit-password]
+```
+→ **Enter**
+
+#### Step 11. Disk
+
+```
+Available disks are:
+  sda   (32.2 GB ATA      VBOX HARDDISK   )
+Which disk(s) would you like to use? (or '?' for help or 'none') [none]
+```
+→ `sda`
+
+```
+How would you like to use it? ('sys', 'data', 'crypt', 'lvm' or '?' for help) [?]
+```
+→ `sys` (a normal installation on the disk)
+
+```
+WARNING: Erase the above disk(s) and continue? (y/n) [n]
+```
+→ `y`
+
+It takes a while to install.
+
+#### Step 12. Power off
+
+```
+Installation is complete. Please reboot.
+```
+
+**Do not reboot yet**: the VM would boot the installer again. Run:
+
+```sh
+poweroff
+```
+
+### 2.3 Remove the ISO and boot from the disk
+
+With the VM powered off, in VirtualBox:
+
+1. **Settings → Storage** → click the optical drive with the ISO → disk icon on the right → **Remove disk from virtual drive**.
+
+![Remove ISO](.img/devDoc/remove_iso.png)
+
+2. **Display** → graphics controller **VMSVGA**, 3D acceleration **disabled**.
+3. **OK**, and start the VM.
+
+![After Iso Removal](.img/devDoc/after_iso_removal.png)
+
+### 2.4 Check the network and the repositories
+
+Before installing anything, check that the VM has network and that `apk` can find packages. `setup-alpine` should leave it ready (step 8), but if the mirror step went wrong, every `apk add` later fails with `no such package`.
+
+Everything in this section and the next one runs as `root`. If you are logged in as `pmendez-` (prompt ending in `$`), become `root` first (it asks for the root password):
+
+```sh
+su -
+```
+
+The prompt now ends in `#`.
+
+> Running `apk add` as a normal user fails with `ERROR: Unable to open log: Permission denied`: only `root` can install packages. And `sudo` cannot be used yet, because it is installed in the next section.
+
+#### Check 1. Network
+
+```sh
+ping -c 3 dl-cdn.alpinelinux.org
+```
+
+![Ping Alpine](.img/devDoc/ping_alpine_linux.png)
+
+It must end with `3 packets transmitted, 3 packets received, 0% packet loss`.
+
+> If it fails (`bad address` or `Network unreachable`), the problem is the network: check the interface with `ip a` and `cat /etc/network/interfaces`. Do not go on until the `ping` answers.
+
+#### Check 2. Repositories
+
+```sh
+cat /etc/apk/repositories
+```
+
+![Check repositories](.img/devDoc/check_repositories.png)
+
+There must be a line ending in `/main` and another one ending in `/community`, **both without `#`** in front.
+
+If `community` is commented with `#`, or the file is empty, or it only has the line of the ISO (`/media/cdrom/apks`), set the official repositories (`-c` enables community, `-1` picks the first mirror, the official CDN):
+
+```sh
+setup-apkrepos -c -1
+```
+
+![Set up-apkrepos](.img/devDoc/setup_apk_repos.png)
+
+> `setup-apkrepos` adds the new lines below the old ones instead of replacing them. It works the same, but the old mirror can be commented out to keep it clean. Run `cat /etc/apk/repositories` again: the two lines of `dl-cdn.alpinelinux.org` must be there without `#`.
+
+#### Check 3. Package list
+
+```sh
+apk update
+```
+
+![apk update](.img/devDoc/apk_update.png)
+
+It must print one line for each repository (one for `main`, one for `community`) and end with `OK: ... distinct packages available`, with no `ERROR` or `WARNING` lines.
+
+> If a line shows an `ERROR` with the URL of a mirror, that mirror is failing: comment it out with `#` in `/etc/apk/repositories`, and run `setup-apkrepos -c -1` and `apk update` again.
+
+#### Check 4. Check if repos are enabled
+
+![Check if repos are enabled](.img/devDoc/check_if_repos_enable.png)
+
+**Install `sudo`:**
 
 ```sh
 apk add sudo
-adduser pmendez
-adduser pmendez wheel
+```
+
+#### Check 5. `apk` finds the packages
+
+`sudo` comes from the `main` repository:
+
+```sh
+apk search -e sudo
+```
+
+`docker` comes from the `community` repository:
+
+```sh
+apk search -e docker
+```
+
+![Check if apk finds sudo and docker](.img/devDoc/check_packages_found.png)
+
+Each one must print the package with its version (for example `sudo-1.9.17_p2-r2`), installed or not. Together they prove that both repositories work.
+
+### 2.5 Grant sudo
+
+Still as `root`:
+
+```sh
+adduser pmendez- wheel
+```
+
+![Add user to wheel](.img/devDoc/adding_user_wheel.png)
+
+```sh
 visudo
 ```
 
@@ -86,58 +357,146 @@ In `visudo`, make sure this line is present and uncommented (the `%` means *grou
 %wheel ALL=(ALL:ALL) NOPASSWD: ALL
 ```
 
-### 2.3 Enable the community repository
+> `visudo` opens the `vi` editor: move to the line with the arrows, put the cursor on the `#` and press `x` twice (it deletes the `#` and the space), then type `:wq` and Enter to save and exit.
 
-Edit `/etc/apk/repositories` and uncomment the line ending in `/community`, then:
+> There are two similar lines, one above the other. Uncomment only the one with `NOPASSWD`:
+>
+> ```
+> # %wheel ALL=(ALL:ALL) ALL                ← asks for the password: leave it commented
+> %wheel ALL=(ALL:ALL) NOPASSWD: ALL        ← uncomment this one
+> ```
+>
+> If `sudo` asks `[sudo] password for pmendez-:`, the wrong line was uncommented. Type the password of `pmendez-`, fix it with `sudo visudo`, and check with `sudo grep -n wheel /etc/sudoers` that the only line without `#` is the `NOPASSWD` one.
+
+![visudo](.img/devDoc/check_visudo.png)
+
+The new group only applies to new sessions. Log out completely (`exit` until the login screen appears) and log in again as `pmendez-`.
+
+Show the groups of the user. It must list `wheel`:
 
 ```sh
-sudo apk update
+id
 ```
 
-### 2.4 Shared folder with the host (VirtualBox)
-
-1. In VirtualBox: *Settings → Shared Folders →* add the project folder, name it `Inception`, check *Auto-mount*.
-
-![alt text](.img/devDoc/shared_folder.png)
-
-2. In the VM, install the guest additions and add the user to the `vboxsf` group:
+Make sudo forget any password typed before, so the next check is real:
 
 ```sh
-sudo apk add virtualbox-guest-additions
+sudo -k
+```
+
+Run a command with sudo. It must answer `root` **without asking for a password**:
+
+```sh
+sudo whoami
+```
+
+![Other Checks](.img/devDoc/other_checks.png)
+
+### 2.6 Graphical interface (XFCE)
+
+Alpine has no desktop by default. XFCE is light and runs smoothly in a VM. Run everything as `pmendez-`, with `sudo`.
+
+Install the desktop. Alpine's `setup-desktop` script installs Xorg, XFCE, LightDM (the graphical login screen) and dbus, and enables their services:
+
+```sh
+sudo setup-desktop xfce
+```
+
+Install the graphics driver for the VMSVGA controller:
+
+```sh
+sudo apk add xf86-video-vmware mesa-dri-gallium
+```
+
+![Install XFCE](.img/devDoc/install_graphics_driver.png)
+
+Check the name of the VirtualBox guest additions packages:
+
+```sh
+apk search virtualbox-guest
+```
+
+![Check virtualbox-guest packages](.img/devDoc/check_virtualbox_guest.png)
+
+Install them (automatic screen resizing and shared clipboard):
+
+```sh
+sudo apk add virtualbox-guest-additions virtualbox-guest-additions-x11
+```
+
+![Install virtualbox-guest-additions](.img/devDoc/other_guest_additions.png)
+
+> If `apk` says `no such package`, install only the names printed by `apk search virtualbox-guest`.
+
+Start the guest additions on every boot:
+
+```sh
 sudo rc-update add virtualbox-guest-additions default
-sudo adduser pmendez vboxsf
+```
+
+Check that LightDM starts on every boot. It must show `lightdm | default`:
+
+```sh
+rc-update show | grep lightdm
+```
+
+![Check lightdm](.img/devDoc/final_guest_additions_checks.png)
+
+Reboot:
+
+```sh
 sudo reboot
 ```
 
+The graphical login screen appears. Log in as `pmendez-`.
 
-
-The project is then available at `/media/sf_Inception`.
-
-![alt text](.img/devDoc/sf_Inception.png)
-
-> Group changes only apply after logging out and back in. Check with `id`.
-
-![alt text](.img/devDoc/show_groups_user.png)
+> The keyboard of the desktop is configured apart from the text console. If it types in English, go to **Applications → Settings → Keyboard → Layout**, uncheck *Use system defaults*, add **Spanish** and remove **English**.
 
 ---
 
 ## 3. Docker installation
 
+Install Docker and the Compose plugin:
+
 ```sh
 sudo apk add docker docker-cli-compose
-sudo rc-update add docker default     # start Docker on every boot
-sudo rc-service docker start          # start it now
-sudo adduser pmendez docker          # use docker without sudo
 ```
 
-Log out and back in, then verify:
+Start Docker on every boot:
 
+```sh
+sudo rc-update add docker default
 ```
+
+Start it now:
+
+```sh
+sudo rc-service docker start
+```
+
+Add the user to the `docker` group, to use `docker` without `sudo`:
+
+```sh
+sudo adduser pmendez- docker
+```
+
+The new group only applies to new sessions: log out completely and log in again as `pmendez-`.
+
+Check the Docker version:
+
+```sh
 docker --version
+```
+
+Check the Compose version:
+
+```sh
 docker compose version
 ```
 
 ![alt text](.img/devDoc/check_versions.png)
+
+Run a test container. It must print `Hello from Docker!`:
 
 ```sh
 docker run --rm hello-world
@@ -200,7 +559,7 @@ The project runs three containers. Each one does **one** job:
 └─────┼─────────────────────────────────────────┼─────────────────────────────┼───────┘
       │                                         │                             │
       └──────────▶  volume "wordpress"  ◀───────┘                volume "mariadb"
-                 /home/pmendez/data/wordpress            /home/pmendez/data/mariadb
+                 /home/pmendez-/data/wordpress            /home/pmendez-/data/mariadb
 ```
 
 ### 6.2 Two kinds of connection
@@ -399,7 +758,7 @@ Describes the three services and how they are connected.
 The bottom of the file defines the shared pieces:
 
 - **`networks.inception`**: a `bridge` network, Docker's private network type.
-- **`volumes.wordpress` / `volumes.mariadb`**: named volumes whose data is stored in `/home/pmendez/data/...` (`driver_opts` with `device:` tells Docker *where* on the VM to keep the data).
+- **`volumes.wordpress` / `volumes.mariadb`**: named volumes whose data is stored in `/home/pmendez-/data/...` (`driver_opts` with `device:` tells Docker *where* on the VM to keep the data).
 - **`secrets`**: maps each secret name to its file in `../secrets/`.
 
 ### 7.2 nginx
@@ -578,14 +937,14 @@ Run everything from the project root.
 | `make build` | Creates the data folders and builds the images (does not start them) |
 | `make up-<service>` | Starts one service, e.g. `make up-nginx` |
 | `make down` | Stops and removes the containers. **Data is kept** |
-| `make clean` | `down` + `docker system prune -a --volumes -f` + deletes `/home/pmendez/data` (with `sudo`) |
+| `make clean` | `down` + `docker system prune -a --volumes -f` + deletes `/home/pmendez-/data` (with `sudo`) |
 | `make re` | `clean` then `make`: full rebuild from zero |
 
 > ⚠️ `make clean` runs `docker system prune -a`, which removes **all** unused Docker images, containers and volumes on the machine, not only this project's. It also deletes the website and the database.
 
 ### 9.2 What `make` does, step by step
 
-1. **`create_dirs`**: `mkdir -p /home/pmendez/data/wordpress /home/pmendez/data/mariadb`. The volumes need these folders to exist.
+1. **`create_dirs`**: `sudo mkdir -p /home/pmendez-/data/wordpress /home/pmendez-/data/mariadb`. The volumes need these folders to exist.
 2. **`build`**: `docker compose -f srcs/docker-compose.yml build` runs the three Dockerfiles.
 3. **`up -d`**: creates the network, the volumes and the containers, then starts them in the background, in `depends_on` order:
    1. **mariadb**: on the first start it initialises the database (a few seconds), then serves on 3306.
@@ -657,7 +1016,7 @@ USE wordpress; SHOW TABLES;
 ```sh
 docker volume ls                        # srcs_wordpress, srcs_mariadb
 docker volume inspect srcs_wordpress    # "device" shows the folder on the VM
-ls /home/pmendez/data/wordpress        # the WordPress files, seen from the VM
+ls /home/pmendez-/data/wordpress        # the WordPress files, seen from the VM
 ```
 
 To see that both containers share the same files:
@@ -682,8 +1041,8 @@ docker network inspect srcs_inception   # lists the 3 containers and their IPs
 
 | Volume | Path in the container | Path on the VM | Contents |
 |---|---|---|---|
-| `srcs_wordpress` | `/var/www/html` (nginx and wordpress) | `/home/pmendez/data/wordpress` | WordPress files, `wp-config.php`, uploads |
-| `srcs_mariadb` | `/var/lib/mysql` (mariadb) | `/home/pmendez/data/mariadb` | Database files |
+| `srcs_wordpress` | `/var/www/html` (nginx and wordpress) | `/home/pmendez-/data/wordpress` | WordPress files, `wp-config.php`, uploads |
+| `srcs_mariadb` | `/var/lib/mysql` (mariadb) | `/home/pmendez-/data/mariadb` | Database files |
 
 Both are **named volumes** (declared under `volumes:` in `docker-compose.yml`), not bind mounts. `driver_opts.device` only tells Docker in which VM folder to keep their data.
 
@@ -703,7 +1062,7 @@ The start scripts detect existing data: MariaDB checks for `/var/lib/mysql/mysql
 
 ```sh
 make down
-sudo rm -rf /home/pmendez/data       # needs sudo: the files belong to the container users
+sudo rm -rf /home/pmendez-/data       # needs sudo: the files belong to the container users
 docker volume rm srcs_wordpress srcs_mariadb
 make
 ```
@@ -719,8 +1078,8 @@ make
 | `This does not seem to be a WordPress installation` | A previous install stopped halfway and left files in the volume | Reset the data ([11.3](#113-starting-again-from-zero)) |
 | `No space left on device` | The VM disk is full | Free space (`df -h`, `docker system df`) |
 | `cannot expose privileged port 443` | Docker runs in rootless mode | Use a normal (rootful) Docker install, as in [section 3](#3-docker-installation) |
-| `failed to mount local volume ... no such file or directory` | `/home/pmendez/data/...` does not exist | Run `make` (it creates the folders), and check that your VM user is `pmendez` |
+| `failed to mount local volume ... no such file or directory` | `/home/pmendez-/data/...` does not exist | Run `make` (it creates the folders with `sudo`) |
 | The browser cannot find `pmendez.42.fr` | Missing `/etc/hosts` entry | See [section 4](#4-domain-name) |
 | Browser warning about the certificate | The certificate is self-signed | Expected: accept it |
 | A secret changed but nothing happened | Passwords are only applied on the first start | Reset the data ([11.3](#113-starting-again-from-zero)) |
-| `make clean` fails with `Permission denied` on `/home/.../data` | The files belong to the container users (`mysql`, `nobody`) | `sudo rm -rf /home/pmendez/data` |
+| `make clean` fails with `Permission denied` on `/home/.../data` | The files belong to the container users (`mysql`, `nobody`) | `sudo rm -rf /home/pmendez-/data` |

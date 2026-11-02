@@ -34,6 +34,8 @@ The containers talk to each other through a private Docker network, and the webs
 echo "127.0.0.1 pmendez.42.fr" | sudo tee -a /etc/hosts
 ```
 
+> **Why `pmendez.42.fr` and not `pmendez-.42.fr`?** The 42 login is `pmendez-`, but each label of a domain name must start and end with a letter or a digit; a hyphen is only allowed in the middle (RFC 952 and RFC 1123, section 2.1). `pmendez-.42.fr` is therefore not a valid hostname, so the domain drops the trailing hyphen. Everything else that is not a hostname keeps the full login, such as the data folder `/home/pmendez-/data`.
+
 ### Configuration
 
 Two things are not in the repository and must be created first (see [DEV_DOC.md](DEV_DOC.md#8-configuration-from-scratch-env-and-secrets) for the full explanation):
@@ -131,7 +133,7 @@ This project uses a bridge network called `inception`, so only port 443 is expos
 | Declared once and shared by name between services | Path written in each service |
 | Independent from the host's folder layout | Depends on the host's folders and permissions |
 
-The subject requires **named volumes** stored in `/home/pmendez/data`. The two volumes (`wordpress` and `mariadb`) are named volumes declared in `docker-compose.yml`; the `local` driver option `device:` only tells Docker in which host folder to keep their data.
+The subject requires **named volumes** stored in `/home/pmendez-/data`. The two volumes (`wordpress` and `mariadb`) are named volumes declared in `docker-compose.yml`; the `local` driver option `device:` only tells Docker in which host folder to keep their data.
 
 ## Resources
 
