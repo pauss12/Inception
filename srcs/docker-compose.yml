@@ -53,20 +53,20 @@ networks:
   inception:
     driver: bridge
 
-# Volúmenes con nombre; los datos se guardan en /home/pmendez/data
+# Volúmenes con nombre; los datos se guardan en /home/pmendez-/data
 volumes:
   wordpress:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: /home/pmendez/data/wordpress
+      device: /home/pmendez-/data/wordpress
   mariadb:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: /home/pmendez/data/mariadb
+      device: /home/pmendez-/data/mariadb
 
 # Archivos con contraseñas (fuera de git)
 secrets:

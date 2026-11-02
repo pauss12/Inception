@@ -1,5 +1,5 @@
 NAME = inception
-DATA_DIR = /home/pmendez/data
+DATA_DIR = /home/pmendez-/data
 COMPOSE_FILE = srcs/docker-compose.yml
 
 RED="\033[0;31m"
@@ -25,7 +25,7 @@ up-%:
 
 create_dirs:
 	@echo -e $(GREEN)"Creating volumes..."$(NC)
-	@mkdir -p $(DATA_DIR)/wordpress $(DATA_DIR)/mariadb
+	@sudo mkdir -p $(DATA_DIR)/wordpress $(DATA_DIR)/mariadb
 	@echo -e $(GREEN)"Volumes created."$(NC)
 
 restart:
