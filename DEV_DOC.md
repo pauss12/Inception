@@ -528,6 +528,8 @@ Status of the services. `udev`, `dbus` and `lightdm` must be `started`:
 rc-status
 ```
 
+![Check rc-status](.img/devDoc/rc_status_services.png)
+
 Log of LightDM. `greeter display server failed to start` means that Xorg crashed:
 
 ```sh
@@ -562,23 +564,33 @@ Install Docker and the Compose plugin:
 sudo apk add docker docker-cli-compose
 ```
 
+![Install Docker](.img/devDoc/instalacion_docker.png)
+
 Start Docker on every boot:
 
 ```sh
 sudo rc-update add docker default
 ```
 
+![Add docker](.img/devDoc/add_docker.png)
+
 Start it now:
 
 ```sh
 sudo rc-service docker start
+sudo rc-service docker status
 ```
+
+![Check docker status](.img/devDoc/check_docker_status.png)
 
 Add the user to the `docker` group, to use `docker` without `sudo`:
 
 ```sh
 sudo adduser pmendez- docker
+id pmendez-
 ```
+
+![Check user Permissions](.img/devDoc/check_user_permissions.png)
 
 The new group only applies to new sessions: log out completely and log in again as `pmendez-`.
 
@@ -594,13 +606,15 @@ Check the Compose version:
 docker compose version
 ```
 
-![alt text](.img/devDoc/check_versions.png)
+![Check versions](.img/devDoc/check_versiones.png)
 
 Run a test container. It must print `Hello from Docker!`:
 
 ```sh
 docker run --rm hello-world
 ```
+
+![Run test container](.img/devDoc/run_test_container.png)
 
 ---
 
@@ -612,9 +626,46 @@ The site must be reachable at `pmendez.42.fr`. That name does not exist on the I
 echo "127.0.0.1 pmendez.42.fr" | sudo tee -a /etc/hosts
 ```
 
+Comprobacion de hostname cambiado
+
+```bash
+getent hosts pmendez.42.fr
+```
+
+![Getent hosts](.img/devDoc/getent_hosts.png)
+
 ---
 
-## 5. Editor (optional): VS Code via Flatpak
+## 5. Add VirtualBox Guest Additions
+
+```bash
+VBoxClient --vmsvga
+```
+
+![Check VirtualBox Guest Additions](.img/devDoc/vbox_guest_additions.png)
+
+Como hago que se lance cada vez que inicias sesión
+
+```bash
+mkdir -p ~/.config/autostart
+cat > ~/.config/autostart/vboxclient-vmsvga.desktop << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=VBoxClient VMSVGA
+Exec=VBoxClient --vmsvga
+X-GNOME-Autostart-enabled=true
+EOF
+```
+
+Despues de reiniciar, lanza este comando:
+
+```bash
+pgrep -a VBoxClient 
+```
+
+![Check VBox processes](.img/devDoc/check_vbox_process.png)
+
+## 6. Editor (optional): VS Code via Flatpak
 
 The official VS Code build does not run natively on Alpine (musl), so it is installed through Flatpak:
 
@@ -624,8 +675,9 @@ sudo rc-update add dbus default
 sudo rc-service dbus start
 sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 sudo flatpak install -y flathub com.visualstudio.code
-sudo reboot
 ```
+
+![Install VS Code](.img/devDoc/install_vscode.png)
 
 Optional `code` command:
 
@@ -633,6 +685,8 @@ Optional `code` command:
 printf '#!/bin/sh\nexec flatpak run com.visualstudio.code "$@"\n' | sudo tee /usr/local/bin/code
 sudo chmod +x /usr/local/bin/code
 ```
+
+![VS Code](.img/devDoc/vscode_alias.png)
 
 ---
 
