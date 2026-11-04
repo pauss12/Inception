@@ -277,6 +277,38 @@ It must end with `3 packets transmitted, 3 packets received, 0% packet loss`.
 
 > If it fails (`bad address` or `Network unreachable`), the problem is the network: check the interface with `ip a` and `cat /etc/network/interfaces`. Do not go on until the `ping` answers.
 
+#### Check 1b. DNS
+
+If `ping` to a name fails with `bad address`, or `git clone` fails with `Could not resolve hostname github.com`, but `ping -c 2 8.8.8.8` answers, the VM has network but cannot translate names into IPs: the problem is the **DNS**.
+
+```sh
+cat /etc/resolv.conf
+```
+
+By default it shows `nameserver 10.0.2.3`: the DNS of VirtualBox, which forwards every query to the DNS of the host. On the 42 computers the host uses a local DNS (`127.0.0.53`, systemd-resolved), and VirtualBox sometimes fails to forward to it. The fix is to use the real DNS of the host directly. To find it, run on the **host** (not in the VM):
+
+```sh
+resolvectl status | grep 'DNS Servers'
+```
+
+At 42 Madrid it is `10.51.1.253`. Write it in the VM, with Google's DNS as a backup:
+
+```sh
+printf "search 42madrid.com\nnameserver 10.51.1.253\nnameserver 8.8.8.8\n" > /etc/resolv.conf
+ping -c 2 github.com
+```
+
+This change is lost on the next boot: when the network starts, `udhcpc` (the DHCP client of Alpine) asks VirtualBox for an IP and rewrites `/etc/resolv.conf` with the DNS it receives (`10.0.2.3` again). To stop it from touching the file, uncomment `RESOLV_CONF="no"` in its configuration (it still gets the IP; it only leaves `resolv.conf` alone):
+
+```sh
+sed -i 's/^#RESOLV_CONF="no"/RESOLV_CONF="no"/' /etc/udhcpc/udhcpc.conf
+grep RESOLV_CONF /etc/udhcpc/udhcpc.conf
+```
+
+The first line printed must be `RESOLV_CONF="no"`, without `#`. After a `reboot`, `cat /etc/resolv.conf` must still show `10.51.1.253`.
+
+> This only affects the VM. The containers get their own `resolv.conf` from Docker, and they find each other by name through the `inception` network. But the build needs internet (`apk add`, the download of WP-CLI and WordPress): with a broken DNS, `make` fails.
+
 #### Check 2. Repositories
 
 ```sh
@@ -1087,8 +1119,9 @@ Run everything from the project root.
 
 | Command | What it does |
 |---|---|
-| `make` | Creates the data folders, builds the 3 images, starts the containers |
-| `make build` | Creates the data folders and builds the images (does not start them) |
+| `make` | Checks `.env` and the secrets, creates the data folders, builds the 3 images, starts the containers |
+| `make build` | Checks `.env` and the secrets, creates the data folders and builds the images (does not start them) |
+| `make check_config` | Only checks that `srcs/.env` has every variable filled in, that `WP_ADMIN_USER` does not contain `admin`, and that the 4 files in `secrets/` exist and are not empty |
 | `make up-<service>` | Starts one service, e.g. `make up-nginx` |
 | `make down` | Stops and removes the containers. **Data is kept** |
 | `make clean` | `down` + `docker system prune -a --volumes -f` + deletes `/home/pmendez-/data` (with `sudo`) |
@@ -1098,9 +1131,10 @@ Run everything from the project root.
 
 ### 9.2 What `make` does, step by step
 
-1. **`create_dirs`**: `sudo mkdir -p /home/pmendez-/data/wordpress /home/pmendez-/data/mariadb`. The volumes need these folders to exist.
-2. **`build`**: `docker compose -f srcs/docker-compose.yml build` runs the three Dockerfiles.
-3. **`up -d`**: creates the network, the volumes and the containers, then starts them in the background, in `depends_on` order:
+1. **`check_config`**: stops with a red message naming what is missing if `srcs/.env` or any secret is missing or empty (see [section 8](#8-configuration-from-scratch-env-and-secrets)). Without it, `docker compose` would fail with a less clear error, or MariaDB would start with an empty password.
+2. **`create_dirs`**: `sudo mkdir -p /home/pmendez-/data/wordpress /home/pmendez-/data/mariadb`. The volumes need these folders to exist.
+3. **`build`**: `docker compose -f srcs/docker-compose.yml build` runs the three Dockerfiles.
+4. **`up -d`**: creates the network, the volumes and the containers, then starts them in the background, in `depends_on` order:
    1. **mariadb**: on the first start it initialises the database (a few seconds), then serves on 3306.
    2. **wordpress**: waits for MariaDB; on the first start it downloads and installs WordPress (about a minute), then PHP-FPM serves on 9000.
    3. **nginx**: serves HTTPS on 443.
@@ -1234,6 +1268,7 @@ make
 | `cannot expose privileged port 443` | Docker runs in rootless mode | Use a normal (rootful) Docker install, as in [section 3](#3-docker-installation) |
 | `failed to mount local volume ... no such file or directory` | `/home/pmendez-/data/...` does not exist | Run `make` (it creates the folders with `sudo`) |
 | The browser cannot find `pmendez.42.fr` | Missing `/etc/hosts` entry | See [section 4](#4-domain-name) |
+| `Could not resolve hostname github.com`, or `make` fails downloading packages, while `ping 8.8.8.8` works | The DNS of VirtualBox (`10.0.2.3`) does not answer | Set `nameserver 10.51.1.253` and make it permanent: see [Check 1b](#check-1b-dns) |
 | Browser warning about the certificate | The certificate is self-signed | Expected: accept it |
 | A secret changed but nothing happened | Passwords are only applied on the first start | Reset the data ([11.3](#113-starting-again-from-zero)) |
 | `make clean` fails with `Permission denied` on `/home/.../data` | The files belong to the container users (`mysql`, `nobody`) | `sudo rm -rf /home/pmendez-/data` |

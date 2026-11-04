@@ -33,6 +33,15 @@ git clone git@github.com:pauss12/Inception.git
 
 ![Clone](.img/guideDoc/cloning_project.png)
 
+> If it fails with `Could not resolve hostname github.com` (the "access rights" message after it is generic), the VM has network but no DNS. Check it with `ping -c 2 8.8.8.8` (answers) and `cat /etc/resolv.conf` (shows `nameserver 10.0.2.3`). Fix it and clone again:
+>
+> ```sh
+> printf "search 42madrid.com\nnameserver 10.51.1.253\nnameserver 8.8.8.8\n" | sudo tee /etc/resolv.conf
+> sudo sed -i 's/^#RESOLV_CONF="no"/RESOLV_CONF="no"/' /etc/udhcpc/udhcpc.conf
+> ```
+>
+> The second line keeps the change after a reboot. Full explanation in [DEV_DOC.md, Check 1b](DEV_DOC.md#check-1b-dns).
+
 It must show the three folders: `Inception`, `srcs`, `secrets` (the last one is empty). The evaluator checks that no credentials are in git:
 Makefile, srcs/, README.md, USER_DOC.md, DEV_DOC.md
 
