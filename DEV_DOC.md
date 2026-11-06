@@ -933,7 +933,7 @@ Describes the three services and how they are connected.
 | `build: requirements/<service>` | Builds the image from our own Dockerfile (no ready-made images) |
 | `image: <service>:inception` | The image gets the same name as its service (subject requirement), with the tag `inception`. Without a tag, Docker would name it `<service>:latest`, and the `latest` tag is forbidden |
 | `container_name` | Fixed name, so we can write `docker exec nginx ...` |
-| `ports: "443:443"` | Only in nginx: `VM port : container port` |
+| `ports: "${NGINX_PORT}:${NGINX_PORT}"` | Only in nginx: `VM port : container port` (`443:443` by default) |
 | `env_file: .env` | Loads the non-secret variables into the container |
 | `secrets:` | Each secret file appears in the container as `/run/secrets/<name>` |
 | `volumes:` | Plugs a named volume into a folder of the container |
@@ -954,19 +954,19 @@ The bottom of the file defines the shared pieces:
 1. Installs `nginx` and `openssl`.
 2. Creates a **self-signed TLS certificate** for `pmendez.42.fr` (`openssl req -x509 ...`). "Self-signed" means no authority signed it, so the browser shows a warning. That is expected.
 3. Copies `conf/nginx.conf` over Alpine's default site config.
-4. Exposes port 443.
+4. Writes `NGINX_PORT` (443 by default) in `listen` and `PHP_PORT` in `fastcgi_pass`, then exposes `NGINX_PORT`.
 5. Starts nginx in the foreground (`daemon off;`).
 
 **`conf/nginx.conf`**
 
 | Directive | Meaning |
 |---|---|
-| `listen 443 ssl;` | Only HTTPS. There is no port 80 |
+| `listen 443 ssl;` | Only HTTPS. There is no port 80. The Dockerfile replaces `443` with `NGINX_PORT` from `.env` during the build |
 | `ssl_protocols TLSv1.2 TLSv1.3;` | Older, insecure TLS versions are refused |
 | `root /var/www/html;` | Where the website files are: the shared `wordpress` volume |
 | `try_files $uri $uri/ /index.php?$args;` | Is it a file? Serve it. A folder? Serve its index. Otherwise let WordPress (`index.php`) handle it |
 | `location ~ \.php$` | For URLs ending in `.php`… |
-| `fastcgi_pass wordpress:9000;` | …send them to PHP-FPM in the `wordpress` container |
+| `fastcgi_pass wordpress:9000;` | …send them to PHP-FPM in the `wordpress` container. The Dockerfile replaces `9000` with `PHP_PORT` from `.env` during the build |
 | `fastcgi_param SCRIPT_FILENAME ...` | …and tell PHP-FPM which file to run (e.g. `/var/www/html/index.php`) |
 
 ### 7.3 WordPress
@@ -975,12 +975,12 @@ The bottom of the file defines the shared pieces:
 
 1. Installs PHP 8.3, PHP-FPM, the PHP extensions WordPress needs, `curl` and the MariaDB client.
 2. Links `php` → `php83`, because WP-CLI looks for a program called `php`.
-3. Makes PHP-FPM listen on `9000` instead of `127.0.0.1:9000`, so other containers (nginx) can reach it.
+3. Makes PHP-FPM listen on `PHP_PORT` (from `.env`, passed as a build arg) instead of `127.0.0.1:9000`, so other containers (nginx) can reach it.
 4. Raises PHP's `memory_limit` to 512M. WP-CLI needs it to unpack WordPress.
 5. Downloads **WP-CLI** (`/usr/local/bin/wp`), the command-line tool used to install WordPress.
 6. Copies the start script.
 7. Sets `/var/www/html` as the working directory (where the volume is mounted).
-8. Exposes port 9000.
+8. Exposes `PHP_PORT`.
 9. Runs the script on start.
 
 **`tools/wp-installer.sh`**, run at every start:
@@ -989,11 +989,12 @@ The bottom of the file defines the shared pieces:
 2. Waits until MariaDB answers (`mariadb-admin ping`), at most 60 tries of 2 seconds. On the very first start, the database needs a few seconds to initialise. If it never answers, the script exits with an error and Docker restarts the container, so it is never an infinite loop.
 3. **Only if `wp-config.php` does not exist yet** (first start), installs WordPress:
    1. `wp core download`: downloads the WordPress files into the volume.
-   2. `wp config create`: writes `wp-config.php` (database name, user, password, host `mariadb:3306`).
+   2. `wp config create`: writes `wp-config.php` (database name, user, password, host `mariadb:$DB_PORT`).
    3. `wp core install`: creates the tables in MariaDB, the site title and the **administrator** account.
    4. `wp user create`: creates the second, non-admin user (role `author`).
-4. Gives the files to `nobody`, the user PHP-FPM runs as, so WordPress can write (uploads, plugins).
-5. `exec php-fpm83 -F`: PHP-FPM becomes PID 1.
+4. On every start: `wp config set DB_HOST "mariadb:$DB_PORT"` and `wp option update home/siteurl` with `https://$DOMAIN_NAME` (plus `:$NGINX_PORT` when it is not 443), so WordPress follows `DB_PORT` and `NGINX_PORT` if they change.
+5. Gives the files to `nobody`, the user PHP-FPM runs as, so WordPress can write (uploads, plugins).
+6. `exec php-fpm83 -F`: PHP-FPM becomes PID 1.
 
 On the next starts `wp-config.php` already exists in the volume, so step 3 is skipped.
 
@@ -1005,7 +1006,7 @@ On the next starts `wp-config.php` already exists in the volume, so step 3 is sk
 2. Creates `/run/mysqld`, the folder for the local socket (used to connect from inside the container).
 3. Copies `conf/mariadb-conf.cnf` over Alpine's default config, which blocks network connections.
 4. Copies the start script.
-5. Exposes port 3306.
+5. Exposes `DB_PORT`.
 6. Runs the script on start.
 
 **`conf/mariadb-conf.cnf`**
@@ -1013,7 +1014,7 @@ On the next starts `wp-config.php` already exists in the volume, so step 3 is sk
 | Option | Meaning |
 |---|---|
 | `bind-address = 0.0.0.0` | Accept connections from other containers (WordPress), not only from inside |
-| `port = 3306` | Standard MariaDB port |
+| `port = 3306` | Standard MariaDB port. The Dockerfile replaces it with `DB_PORT` from `.env` during the build |
 | `datadir = /var/lib/mysql` | Where the data is stored: the `mariadb` volume |
 | `socket = /run/mysqld/mysqld.sock` | Local socket file for connections from inside the container |
 
@@ -1059,6 +1060,13 @@ DOMAIN_NAME=pmendez.42.fr
 DB_NAME=wordpress
 DB_USER=wpuser
 
+# Internal ports (only inside the Docker network)
+DB_PORT=3306
+PHP_PORT=9000
+
+# HTTPS port of nginx (the only one published to the host)
+NGINX_PORT=443
+
 # WordPress (the admin username must NOT contain "admin")
 WP_TITLE=Inception
 WP_ADMIN_USER=pmendez_boss
@@ -1073,6 +1081,9 @@ EOF
 | `DOMAIN_NAME` | wordpress | Site URL (`https://$DOMAIN_NAME`) |
 | `DB_NAME` | mariadb, wordpress | Name of the WordPress database |
 | `DB_USER` | mariadb, wordpress | Database user WordPress connects with |
+| `DB_PORT` | mariadb (build), wordpress | Port MariaDB listens on; WordPress connects to it |
+| `PHP_PORT` | wordpress (build), nginx (build) | Port PHP-FPM listens on; nginx sends `.php` requests to it |
+| `NGINX_PORT` | nginx (build), docker compose (`ports:`), wordpress | HTTPS port of the site. WordPress adds it to its address when it is not 443 |
 | `WP_TITLE` | wordpress | Site title |
 | `WP_ADMIN_USER` / `WP_ADMIN_EMAIL` | wordpress | Administrator account. Must not contain `admin` / `Admin` / `administrator` |
 | `WP_USER` / `WP_USER_EMAIL` | wordpress | Second, non-admin account |

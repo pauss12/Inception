@@ -8,7 +8,7 @@ SECRETS = db_password db_root_password wp_admin_password wp_user_password
 # Hora de inicio de make (para mostrar cuánto tarda) y espera máxima de WordPress
 START := $(shell date +%s)
 WAIT_MAX = 300
-ENV_VARS = DOMAIN_NAME DB_NAME DB_USER WP_TITLE WP_ADMIN_USER WP_ADMIN_EMAIL WP_USER WP_USER_EMAIL
+ENV_VARS = DOMAIN_NAME DB_NAME DB_USER DB_PORT PHP_PORT NGINX_PORT WP_TITLE WP_ADMIN_USER WP_ADMIN_EMAIL WP_USER WP_USER_EMAIL
 
 RED="\033[0;31m"
 GREEN="\033[0;32m"

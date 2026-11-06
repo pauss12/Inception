@@ -2,7 +2,7 @@
 [mysqld]
 user         = mysql                      # usuario del sistema que ejecuta MariaDB
 bind-address = 0.0.0.0                    # aceptar conexiones de otros contenedores
-port         = 3306
+port         = 3306                     # en el build se cambia por DB_PORT de .env
 datadir      = /var/lib/mysql             # aquí se guardan los datos (el volumen)
 socket       = /run/mysqld/mysqld.sock
 

@@ -98,6 +98,9 @@ cat > srcs/.env << 'END'
 DOMAIN_NAME=pmendez.42.fr
 DB_NAME=wordpress
 DB_USER=wpuser
+DB_PORT=3306
+PHP_PORT=9000
+NGINX_PORT=443
 WP_TITLE=Inception
 WP_ADMIN_USER=pmendez_boss
 WP_ADMIN_EMAIL=pmendez-@student.42.fr
@@ -354,37 +357,20 @@ make down && make
 
 ### Example A: change NGINX's port (443 → 8443)
 
-1. `srcs/requirements/nginx/conf/nginx.conf`: `listen 443 ssl;` → `listen 8443 ssl;`
-2. `srcs/requirements/nginx/Dockerfile`: `EXPOSE 443` → `EXPOSE 8443`
-3. `srcs/docker-compose.yml`: `"443:443"` → `"8443:8443"`
-4. `make down && make`
-5. WordPress stores its address (`https://pmendez.42.fr`), so it would redirect to port 443. Update it:
+1. `srcs/.env`: `NGINX_PORT=443` → `NGINX_PORT=8443`
+2. `make`: the build writes the new port in nginx (`listen`, `EXPOSE`), docker compose publishes `8443:8443`, and on start `wp-installer.sh` updates WordPress's address (`home` and `siteurl`) to `https://pmendez.42.fr:8443`, so it does not redirect to port 443.
+3. Open **https://pmendez.42.fr:8443**. `docker ps` shows `0.0.0.0:8443->8443/tcp` for nginx.
 
-   ```sh
-   docker exec wordpress wp option update home    https://pmendez.42.fr:8443 --allow-root
-   docker exec wordpress wp option update siteurl https://pmendez.42.fr:8443 --allow-root
-   ```
-
-6. Open **https://pmendez.42.fr:8443**.
-
-To undo it: revert the three files, `make down && make`, and run the two commands again with `https://pmendez.42.fr`.
+To undo it: `NGINX_PORT=443` in `srcs/.env` and `make` again.
 
 ### Example B: change PHP-FPM's port (9000 → 9001)
 
-1. `srcs/requirements/wordpress/Dockerfile`: `listen = 9000` → `listen = 9001` in the `sed` line, and `EXPOSE 9000` → `EXPOSE 9001`
-2. `srcs/requirements/nginx/conf/nginx.conf`: `fastcgi_pass wordpress:9000;` → `fastcgi_pass wordpress:9001;`
-3. `make down && make`, then open https://pmendez.42.fr: it still works.
+1. `srcs/.env`: `PHP_PORT=9000` → `PHP_PORT=9001`
+2. `make`: the build writes the new port in PHP-FPM (`listen`, `EXPOSE`) and in nginx (`fastcgi_pass`), and recreates both containers.
+3. Check it: `docker exec wordpress netstat -tln` shows `:9001`, and https://pmendez.42.fr still works.
 
 ### Example C: change MariaDB's port (3306 → 3307)
 
-1. `srcs/requirements/mariadb/conf/mariadb-conf.cnf`: `port = 3306` → `port = 3307`
-2. `srcs/requirements/mariadb/Dockerfile`: `EXPOSE 3306` → `EXPOSE 3307`
-3. `srcs/requirements/wordpress/tools/wp-installer.sh`: add `-P 3307` to the `mariadb-admin ping` line, and `--dbhost=mariadb:3306` → `--dbhost=mariadb:3307`
-4. `make down && make`
-5. `wp-config.php` was created with the old port, so update it:
-
-   ```sh
-   docker exec wordpress wp config set DB_HOST mariadb:3307 --allow-root
-   ```
-
-6. Open https://pmendez.42.fr: it still works.
+1. `srcs/.env`: `DB_PORT=3306` → `DB_PORT=3307`
+2. `make`: the build writes the new port in MariaDB (`port`, `EXPOSE`), and on start `wp-installer.sh` uses it for the `ping` and updates `DB_HOST` in `wp-config.php` by itself.
+3. Check it: `docker exec mariadb netstat -tln` shows `:3307`, and https://pmendez.42.fr still works.

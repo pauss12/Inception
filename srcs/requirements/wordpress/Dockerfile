@@ -11,6 +11,7 @@ RUN apk add --no-cache \
 	php83-json \
 	php83-curl \
 	php83-iconv \
+	php83-tokenizer \
 	curl \
 	mariadb-client
 
@@ -19,8 +20,10 @@ RUN apk add --no-cache \
 RUN ln -sf /usr/bin/php83 /usr/bin/php
 
 # 3. PHP-FPM escucha por defecto en 127.0.0.1:9000 (solo dentro de su contenedor).
-#    Con "listen = 9000" acepta conexiones de otros contenedores (nginx)
-RUN sed -i 's/^listen = .*/listen = 9000/' /etc/php83/php-fpm.d/www.conf
+#    Con "listen = PHP_PORT" acepta conexiones de otros contenedores (nginx).
+#    PHP_PORT llega de .env a través de "args:" en docker-compose.yml
+ARG PHP_PORT
+RUN sed -i "s/^listen = .*/listen = ${PHP_PORT}/" /etc/php83/php-fpm.d/www.conf
 
 # 4. Subir el límite de memoria de PHP (128M por defecto).
 #    WP-CLI necesita más para descomprimir WordPress
@@ -38,7 +41,7 @@ COPY tools/wp-installer.sh /wp-installer.sh
 WORKDIR /var/www/html
 
 # 8. Puerto de PHP-FPM (nginx se conecta aquí)
-EXPOSE 9000
+EXPOSE ${PHP_PORT}
 
 # 9. Al arrancar el contenedor, ejecutar el script
 CMD ["sh", "/wp-installer.sh"]

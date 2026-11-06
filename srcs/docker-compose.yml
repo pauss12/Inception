@@ -1,11 +1,15 @@
 services:
 
   nginx:
-    build: requirements/nginx
+    build:
+      context: requirements/nginx
+      args:
+        PHP_PORT: ${PHP_PORT}         # puerto de PHP-FPM, leído de .env
+        NGINX_PORT: ${NGINX_PORT}     # puerto HTTPS en el que escucha nginx
     image: nginx:inception
     container_name: nginx
     ports:
-      - "443:443"                     # puerto del ordenador : puerto del contenedor
+      - "${NGINX_PORT}:${NGINX_PORT}" # puerto del ordenador : puerto del contenedor
     volumes:
       - wordpress:/var/www/html       # ve los mismos archivos que WordPress
     networks:
@@ -14,9 +18,12 @@ services:
       - wordpress                     # arranca después de WordPress
     restart: unless-stopped           # se reinicia si se cae
 
-  # WORDPRESS + PHP-FPM: ejecuta el código PHP (puerto 9000, solo dentro de la red)
+  # WORDPRESS + PHP-FPM: ejecuta el código PHP (puerto PHP_PORT, solo dentro de la red)
   wordpress:
-    build: requirements/wordpress
+    build:
+      context: requirements/wordpress
+      args:
+        PHP_PORT: ${PHP_PORT}         # puerto en el que escucha PHP-FPM
     image: wordpress:inception
     container_name: wordpress
     env_file: .env                    # variables no secretas (usuarios, dominio...)
@@ -32,9 +39,12 @@ services:
       - mariadb
     restart: unless-stopped
 
-  # MARIADB: la base de datos (puerto 3306, solo dentro de la red)
+  # MARIADB: la base de datos (puerto DB_PORT, solo dentro de la red)
   mariadb:
-    build: requirements/mariadb
+    build:
+      context: requirements/mariadb
+      args:
+        DB_PORT: ${DB_PORT}           # puerto en el que escucha MariaDB
     image: mariadb:inception
     container_name: mariadb
     env_file: .env
