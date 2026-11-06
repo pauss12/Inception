@@ -270,15 +270,15 @@ All the commands below have a time limit (`--max-time 5` / `timeout 5`), so they
 
    ```sh
    curl -I --max-time 5 https://pmendez.42.fr
-   # curl: (60) SSL certificate OpenSSL verify result: self-signed certificate (18)
    ```
 
-   This is **correct**: nginx answers over HTTPS with our own certificate, created by `tools/signCertificate.sh` during the build, not by an official authority, so `curl` does not trust it. The evaluation sheet allows it: *"The SSL/TLS certificate doesn't have to be recognized. A self-signed certificate warning may appear."* Add `-k` to connect anyway:
+   It fails with `curl: (60) SSL certificate OpenSSL verify result: self-signed certificate (18)`. This is **correct**: nginx answers over HTTPS with our own certificate, created by `tools/signCertificate.sh` during the build, not by an official authority, so `curl` does not trust it. The evaluation sheet allows it: *"The SSL/TLS certificate doesn't have to be recognized. A self-signed certificate warning may appear."* Add `-k` to connect anyway:
 
    ```sh
    curl -kI --max-time 5 https://pmendez.42.fr
-   # HTTP/1.1 200 OK
    ```
+
+   It must show `HTTP/1.1 200 OK`.
 
 3. **TLS v1.2 / v1.3 are used**:
 
