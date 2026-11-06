@@ -224,7 +224,7 @@ Check Italic in README.md
 Check if the README.md contains the following sections: Description, Instructions, Resources (with the use of AI), Project description
 
 ```sh
-grep -n '^## ' README.md
+grep -nE '^## |^### Use of AI' README.md
 ```
 
 ![Check Sections](.img/guideDoc/check_readme_structure.png)
@@ -266,6 +266,20 @@ All the commands below have a time limit (`--max-time 5` / `timeout 5`), so they
 
 2. **HTTPS works**: open **https://pmendez.42.fr** in the browser. Accept the self-signed certificate warning. The WordPress site appears directly, **not** the installation page.
 
+   With `curl`, the same warning appears as an error:
+
+   ```sh
+   curl -I --max-time 5 https://pmendez.42.fr
+   # curl: (60) SSL certificate OpenSSL verify result: self-signed certificate (18)
+   ```
+
+   This is **correct**: nginx answers over HTTPS with our own certificate, created by `tools/signCertificate.sh` during the build, not by an official authority, so `curl` does not trust it. The evaluation sheet allows it: *"The SSL/TLS certificate doesn't have to be recognized. A self-signed certificate warning may appear."* Add `-k` to connect anyway:
+
+   ```sh
+   curl -kI --max-time 5 https://pmendez.42.fr
+   # HTTP/1.1 200 OK
+   ```
+
 3. **TLS v1.2 / v1.3 are used**:
 
    ```sh
@@ -276,7 +290,13 @@ All the commands below have a time limit (`--max-time 5` / `timeout 5`), so they
 
    In the browser: click the padlock → *Connection* / *Certificate* details also shows the TLS version.
 
-4. Show the TLS lines in `srcs/requirements/nginx/conf/nginx.conf`: `listen 443 ssl;` and `ssl_protocols TLSv1.2 TLSv1.3;`.
+4. **The certificate is self-signed**: the subject (who the certificate is for) and the issuer (who signed it) are the same, `CN=pmendez.42.fr`:
+
+   ```sh
+   timeout 5 openssl s_client -connect pmendez.42.fr:443 </dev/null 2>/dev/null | openssl x509 -noout -subject -issuer
+   ```
+
+5. Show the TLS lines in `srcs/requirements/nginx/conf/nginx.conf`: `listen 443 ssl;` and `ssl_protocols TLSv1.2 TLSv1.3;`.
 
 ## Step 9. Docker network
 
