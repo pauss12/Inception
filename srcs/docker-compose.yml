@@ -1,6 +1,5 @@
 services:
 
-  # NGINX: la única puerta de entrada (puerto 443, HTTPS)
   nginx:
     build: requirements/nginx
     image: nginx:inception
@@ -68,7 +67,7 @@ volumes:
       o: bind
       device: /home/pmendez-/data/mariadb
 
-# Archivos con contraseñas (fuera de git)
+# Archivos con contraseñas
 secrets:
   db_password:
     file: ../secrets/db_password.txt

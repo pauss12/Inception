@@ -11,6 +11,8 @@ For how it works inside, see [DEV_DOC.md](DEV_DOC.md).
 
 ## Step 1. Clone the repository in an empty folder
 
+Is just an example. No need to create a folder named `inception-eval`, it can be any name. The evaluator checks that the repository is cloned in an empty folder, so the `data` folder is not present yet.
+
 ```sh
 cd ~ && rm -rf inception-eval && mkdir inception-eval && cd inception-eval
 ```
@@ -18,6 +20,9 @@ cd ~ && rm -rf inception-eval && mkdir inception-eval && cd inception-eval
 ![Folder Preparation](.img/guideDoc/folder_preparation.png)
 
 In order to be able to clone the repository, the Virtual Machine must have the SSH key of the GitHub account.
+The following command creates a new SSH key pair in the VM, if it does not exist yet. The default location is `~/.ssh/id_rsa` and the default passphrase is empty (just press Enter when asked). The public key is in `~/.ssh/id_rsa.pub`.
+
+NO NEED TO CREATE IT. IT IS ONLY DONE ONCE.
 
 ```sh
 ssh-keygen
@@ -70,6 +75,10 @@ docker stop $(docker ps -qa); docker rm $(docker ps -qa); docker rmi -f $(docker
 
 ![Docker Clean](.img/guideDoc/docker_clean.png)
 
+If you try to run the command above in a VM that has never run Docker, it fails with `docker: "stop" requires at least 1 argument.`. That is normal: there are no containers, images, volumes or networks to delete.
+
+![Docker Cleanup While Empty](.img/guideDoc/docker_cleanup_while_empty.png)
+
 That command does not delete the data folder. Delete it too, so the site is installed from zero with the new passwords:
 
 ```sh
@@ -108,8 +117,8 @@ chmod 600 secrets/*
 Check that everything was created:
 
 ```sh
-cat srcs/.env      # the variables above
-ls secrets/        # 4 .txt files
+cat srcs/.env
+ls secrets/
 ```
 
 ![Secrets Created](.img/guideDoc/env_created_check.png)

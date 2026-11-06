@@ -986,7 +986,7 @@ The bottom of the file defines the shared pieces:
 **`tools/wp-installer.sh`**, run at every start:
 
 1. Reads the three passwords from `/run/secrets/`.
-2. Waits until MariaDB answers (`mariadb-admin ping`). On the very first start, the database needs a few seconds to initialise.
+2. Waits until MariaDB answers (`mariadb-admin ping`), at most 60 tries of 2 seconds. On the very first start, the database needs a few seconds to initialise. If it never answers, the script exits with an error and Docker restarts the container, so it is never an infinite loop.
 3. **Only if `wp-config.php` does not exist yet** (first start), installs WordPress:
    1. `wp core download`: downloads the WordPress files into the volume.
    2. `wp config create`: writes `wp-config.php` (database name, user, password, host `mariadb:3306`).
@@ -1022,14 +1022,11 @@ On the next starts `wp-config.php` already exists in the volume, so step 3 is sk
 1. Reads `db_password` and `db_root_password` from `/run/secrets/`.
 2. **Only if `/var/lib/mysql/mysql` does not exist yet** (first start):
    1. `mariadb-install-db`: creates MariaDB's internal system tables.
-   2. Starts a **temporary** MariaDB in the background, without network, only to configure it.
-   3. Waits until it answers.
-   4. Runs the SQL setup:
+   2. Runs the SQL setup with `mariadbd --bootstrap`: MariaDB reads the SQL, applies it and exits by itself. Nothing runs in the background and no network is opened:
       - removes the anonymous users and the `test` database;
       - creates the WordPress database (`DB_NAME`);
       - creates the WordPress user (`DB_USER`) with access from any container (`'%'`);
       - sets the `root` password.
-   5. Shuts the temporary server down.
 3. `exec mariadbd --user=mysql`: the real MariaDB becomes PID 1.
 
 ### 7.5 `Makefile`
