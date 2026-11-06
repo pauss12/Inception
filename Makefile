@@ -44,9 +44,17 @@ wait:
 		printf "\r  [%02d:%02d] %-24s (timeout in %d:%02d)  " $$((total / 60)) $$((total % 60)) "$$step" $$((left / 60)) $$((left % 60)); \
 		sleep 1; \
 	done; \
-	total=$$(($$(date +%s) - $(START))); \
 	printf "\r%60s\r" ""; \
-	printf $(GREEN)"Ready in %dm%02ds: https://$(DOMAIN)"$(NC)"\n" $$((total / 60)) $$((total % 60))
+	sleep 3; \
+	if [ "$$(docker inspect -f '{{.State.Running}} {{.RestartCount}}' nginx)" != "true 0" ]; then \
+		printf $(RED)"WordPress is ready, but nginx failed to start. Last logs:"$(NC)"\n"; \
+		docker logs --tail 20 nginx; \
+		exit 1; \
+	fi; \
+	total=$$(($$(date +%s) - $(START))); \
+	port=$$(grep '^NGINX_PORT=' $(ENV_FILE) | cut -d= -f2); \
+	if [ "$$port" = "443" ]; then url="https://$(DOMAIN)"; else url="https://$(DOMAIN):$$port"; fi; \
+	printf $(GREEN)"Ready in %dm%02ds: %s"$(NC)"\n" $$((total / 60)) $$((total % 60)) "$$url"
 
 # Comprueba que .env tiene todas las variables y que ningún secret está vacío
 # (se crean a mano, ver GUIDE.md paso 3)
