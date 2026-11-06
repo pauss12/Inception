@@ -39,19 +39,19 @@ wait:
 # (se crean a mano, ver GUIDE.md paso 3)
 check_config:
 	@if [ ! -f $(ENV_FILE) ]; then \
-		printf $(RED)"$(ENV_FILE) not found"$(NC)"\n"; exit 1; \
+		printf $(RED)"Configuration error: $(ENV_FILE) not found"$(NC)"\n"; printf "Create the configuration first (see GUIDE.md, step 3), then run make again.\n"; exit 1; \
 	fi
 	@for v in $(ENV_VARS); do \
 		if ! grep -q "^$$v=." $(ENV_FILE); then \
-			printf $(RED)"$$v is missing or empty in $(ENV_FILE)"$(NC)"\n"; exit 1; \
+			printf $(RED)"Configuration error: $$v is missing or empty in $(ENV_FILE)"$(NC)"\n"; printf "Create the configuration first (see GUIDE.md, step 3), then run make again.\n"; exit 1; \
 		fi; \
 	done
 	@if grep -i -q '^WP_ADMIN_USER=.*admin' $(ENV_FILE); then \
-		printf $(RED)"WP_ADMIN_USER must not contain 'admin'"$(NC)"\n"; exit 1; \
+		printf $(RED)"Configuration error: WP_ADMIN_USER must not contain 'admin'"$(NC)"\n"; printf "Create the configuration first (see GUIDE.md, step 3), then run make again.\n"; exit 1; \
 	fi
 	@for s in $(SECRETS); do \
 		if [ ! -s $(SECRETS_DIR)/$$s.txt ]; then \
-			printf $(RED)"$(SECRETS_DIR)/$$s.txt is missing or empty"$(NC)"\n"; exit 1; \
+			printf $(RED)"Configuration error: $(SECRETS_DIR)/$$s.txt is missing or empty"$(NC)"\n"; printf "Create the configuration first (see GUIDE.md, step 3), then run make again.\n"; exit 1; \
 		fi; \
 	done
 	@printf $(GREEN)"Configuration OK."$(NC)"\n"
