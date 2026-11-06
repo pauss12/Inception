@@ -1,6 +1,7 @@
 NAME = inception
 DATA_DIR = /home/pmendez-/data
 COMPOSE_FILE = srcs/docker-compose.yml
+DOMAIN = pmendez.42.fr
 
 RED="\033[0;31m"
 GREEN="\033[0;32m"
@@ -14,6 +15,22 @@ all: build
 	@echo -e $(GREEN)"Starting containers... "$(NC)
 	@docker compose -f $(COMPOSE_FILE) up -d
 	@docker compose -f $(COMPOSE_FILE) start
+	@$(MAKE) --no-print-directory wait
+
+wait:
+	@echo -e $(CYAN)"Waiting for WordPress to be ready..."$(NC)
+	@i=0; \
+	while ! docker logs wordpress 2>&1 | grep -q "Arrancando PHP-FPM"; do \
+		if [ "$$(docker inspect -f '{{.RestartCount}}' wordpress)" -gt 0 ] || [ $$i -ge 180 ]; then \
+			echo -e $(RED)"WordPress failed to start. Last logs:"$(NC); \
+			docker logs --tail 20 wordpress; \
+			docker logs --tail 20 mariadb; \
+			exit 1; \
+		fi; \
+		printf "."; sleep 2; i=$$((i + 2)); \
+	done; \
+	echo ""
+	@echo -e $(GREEN)"Ready: https://$(DOMAIN)"$(NC)
 
 build: create_dirs
 	@echo -e $(CYAN)"Building Docker images... "$(NC)
@@ -49,4 +66,4 @@ clean: down
 
 re: clean all
 
-.PHONY: all build down clean re create_dirs restart
+.PHONY: all build down clean re create_dirs restart wait
