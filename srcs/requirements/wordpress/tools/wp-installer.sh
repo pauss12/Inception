@@ -33,7 +33,8 @@ if [ ! -f wp-config.php ]; then
 
     # 3.3 Crear las tablas en MariaDB y el usuario administrador
     #     (el subject prohíbe que el nombre del admin contenga "admin")
-    wp core install --allow-root \
+    #     Si solo se borró la carpeta de WordPress, la base de datos ya tiene las tablas
+    wp core is-installed --allow-root || wp core install --allow-root \
         --url="https://$DOMAIN_NAME" \
         --title="$WP_TITLE" \
         --admin_user="$WP_ADMIN_USER" \
@@ -42,6 +43,7 @@ if [ ! -f wp-config.php ]; then
         --skip-email
 
     # 3.4 Crear el segundo usuario (no administrador)
+    wp user get "$WP_USER" --allow-root > /dev/null 2>&1 || \
     wp user create "$WP_USER" "$WP_USER_EMAIL" --allow-root \
         --role=author \
         --user_pass="$WP_USER_PASSWORD"

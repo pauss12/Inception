@@ -19,16 +19,20 @@ build: create_dirs
 	@echo -e $(CYAN)"Building Docker images... "$(NC)
 	@docker compose -f $(COMPOSE_FILE) build
 
-up-%:
+up-%: create_dirs
 	@echo -e $(CYAN)"Starting $* container..."$(NC)
 	@docker compose -f $(COMPOSE_FILE) up $* -d
 
 create_dirs:
+	@if [ ! -d $(DATA_DIR)/wordpress ] || [ ! -d $(DATA_DIR)/mariadb ]; then \
+		echo -e $(YELLOW)"Data folder missing, removing old containers..."$(NC); \
+		docker compose -f $(COMPOSE_FILE) down; \
+	fi
 	@echo -e $(GREEN)"Creating volumes..."$(NC)
 	@sudo mkdir -p $(DATA_DIR)/wordpress $(DATA_DIR)/mariadb
 	@echo -e $(GREEN)"Volumes created."$(NC)
 
-restart:
+restart: create_dirs
 	@echo -e $(YELLOW)"Restarting containers..."$(NC)
 	@docker compose -f srcs/docker-compose.yml restart
 	@echo -e $(YELLOW)"Showing logs..."$(NC)
@@ -45,4 +49,4 @@ clean: down
 
 re: clean all
 
-.PHONY: all build down clean re create_dirs
+.PHONY: all build down clean re create_dirs restart
