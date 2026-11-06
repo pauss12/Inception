@@ -1162,12 +1162,24 @@ Then open `https://pmendez.42.fr` in the browser. The browser warns about the se
 | `https://pmendez.42.fr` | The website |
 | `https://pmendez.42.fr/wp-admin` | Administration panel (log in with `WP_ADMIN_USER` and `secrets/wp_admin_password.txt`) |
 
-Check TLS from the terminal:
+Check TLS from the terminal. HTTPS works and shows `HTTP/1.1 200 OK`:
 
 ```sh
-curl -kI https://pmendez.42.fr                       # works
-curl -kI --tlsv1.1 --tls-max 1.1 https://pmendez.42.fr  # must fail (TLS 1.1 refused)
-curl -I http://pmendez.42.fr                         # must fail (no port 80)
+curl -kI https://pmendez.42.fr
+```
+
+TLS 1.1 is refused by nginx, so this shows `alert protocol version`:
+
+```sh
+openssl s_client -connect pmendez.42.fr:443 -tls1_1 -cipher 'DEFAULT@SECLEVEL=0' </dev/null 2>&1 | grep -o 'alert protocol version'
+```
+
+`-cipher 'DEFAULT@SECLEVEL=0'` lets the local OpenSSL try TLS 1.1, which it disables by default. Without it, the error `no protocols available` comes from the client, not from nginx, so `curl --tls-max 1.1` is not a valid test.
+
+HTTP fails, because there is no port 80:
+
+```sh
+curl -I http://pmendez.42.fr
 ```
 
 ---

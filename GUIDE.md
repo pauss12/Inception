@@ -280,13 +280,33 @@ All the commands below have a time limit (`--max-time 5` / `timeout 5`), so they
 
    It must show `HTTP/1.1 200 OK`.
 
-3. **TLS v1.2 / v1.3 are used**:
+3. **Only TLS v1.2 and v1.3 are accepted**. Each command asks nginx to connect with one TLS version.
+
+   **TLS 1.2** works:
 
    ```sh
-   timeout 5 openssl s_client -connect pmendez.42.fr:443 -tls1_2 </dev/null 2>/dev/null | grep -E 'Protocol|Cipher is'   # TLSv1.2 works
-   timeout 5 openssl s_client -connect pmendez.42.fr:443 -tls1_3 </dev/null 2>/dev/null | grep -E 'Protocol|Cipher is'   # TLSv1.3 works
-   curl -kI --max-time 5 --tlsv1.1 --tls-max 1.1 https://pmendez.42.fr       # fails: TLS 1.1 is refused
+   timeout 5 openssl s_client -connect pmendez.42.fr:443 -tls1_2 </dev/null 2>/dev/null | grep '^New'
    ```
+
+   It must show `New, TLSv1.2, Cipher is ECDHE-RSA-AES256-GCM-SHA384`.
+
+   **TLS 1.3** works:
+
+   ```sh
+   timeout 5 openssl s_client -connect pmendez.42.fr:443 -tls1_3 </dev/null 2>/dev/null | grep '^New'
+   ```
+
+   It must show `New, TLSv1.3, Cipher is TLS_AES_256_GCM_SHA384`.
+
+   **TLS 1.1** is refused by nginx:
+
+   ```sh
+   timeout 5 openssl s_client -connect pmendez.42.fr:443 -tls1_1 -cipher 'DEFAULT@SECLEVEL=0' </dev/null 2>&1 | grep -o 'alert protocol version'
+   ```
+
+   It must show `alert protocol version`: nginx answers that it does not accept this version.
+
+   > `-cipher 'DEFAULT@SECLEVEL=0'` is needed because the VM's own OpenSSL also disables TLS 1.1. Without it, the error is `no protocols available`, which comes from the client and not from nginx, so it proves nothing about the server. For the same reason `curl --tls-max 1.1` is not a valid test.
 
    In the browser: click the padlock → *Connection* / *Certificate* details also shows the TLS version.
 
